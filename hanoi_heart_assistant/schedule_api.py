@@ -17,7 +17,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -52,6 +52,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS schedule_imports (
               id INTEGER PRIMARY KEY, original_name TEXT NOT NULL, file_path TEXT NOT NULL,
               sheet_name TEXT NOT NULL, title TEXT, week_start TEXT, week_end TEXT,
+              facility INTEGER DEFAULT 1,
               status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'published')),
               created_at TEXT NOT NULL, approved_at TEXT
             );
@@ -90,6 +91,13 @@ def init_db() -> None:
               ON schedule_shifts(room_id, day_id);
             """
         )
+        try:
+            cursor = con.execute("PRAGMA table_info(schedule_imports)")
+            cols = [row["name"] for row in cursor.fetchall()]
+            if "facility" not in cols:
+                con.execute("ALTER TABLE schedule_imports ADD COLUMN facility INTEGER DEFAULT 1")
+        except Exception:
+            pass
 
 
 def column_number(reference: str) -> int:
@@ -185,6 +193,17 @@ def parse_dates(title: str, labels: list[str]) -> list[str | None]:
     return output
 
 
+def parse_dates_with_override(title: str, labels: list[str], week_start_str: str | None = None) -> list[str | None]:
+    if week_start_str:
+        try:
+            start_date = date.fromisoformat(week_start_str)
+            return [(start_date + timedelta(days=i)).isoformat() for i in range(len(labels))]
+        except ValueError:
+            pass
+    return parse_dates(title, labels)
+
+
+
 def shift_value(value: str) -> tuple[str, str | None]:
     value = clean(value)
     if not value:
@@ -233,12 +252,13 @@ def find_header(matrix: list[list[str]]) -> tuple[int, int, int, list[int]]:
     raise HTTPException(422, "Không tìm thấy hàng tiêu đề Phòng/Thời gian/Thứ 2–Chủ nhật.")
 
 
-def import_excel(path: Path, original_name: str) -> int:
+def import_excel(path: Path, original_name: str, week_start_str: str | None = None) -> int:
     sheet_name, matrix = parse_xlsx(path)
     header_index, room_column, time_column, day_columns = find_header(matrix)
     labels = [clean(matrix[header_index][column]) for column in day_columns]
     title = "\n".join(clean(row[0]) for row in matrix[:header_index] if row and clean(row[0]))
-    dates, now = parse_dates(title, labels), datetime.utcnow().isoformat()
+    dates = parse_dates_with_override(title, labels, week_start_str)
+    now = datetime.utcnow().isoformat()
     area_column = room_column - 1 if room_column else None
     initial_area = (
         "Phòng khám đa khoa"
@@ -246,12 +266,18 @@ def import_excel(path: Path, original_name: str) -> int:
         else None
     )
 
+    title_upper = title.upper()
+    name_upper = original_name.upper()
+    facility = 1
+    if "CƠ SỞ 2" in title_upper or "CS2" in title_upper or "FAC_2" in name_upper or "FAC2" in name_upper:
+        facility = 2
+
     with db() as con:
         import_id = con.execute(
             """INSERT INTO schedule_imports(
-                   original_name,file_path,sheet_name,title,week_start,week_end,created_at
+                   original_name,file_path,sheet_name,title,week_start,week_end,facility,created_at
                )
-               VALUES(?,?,?,?,?,?,?)""",
+               VALUES(?,?,?,?,?,?,?,?)""",
             (
                 original_name,
                 str(path),
@@ -259,6 +285,7 @@ def import_excel(path: Path, original_name: str) -> int:
                 title,
                 next((item for item in dates if item), None),
                 next((item for item in reversed(dates) if item), None),
+                facility,
                 now,
             ),
         ).lastrowid
@@ -325,14 +352,17 @@ def list_sources() -> list[dict[str, Any]]:
 
 
 @router.post("/api/sources")
-async def upload_source(file: UploadFile = File(...)) -> dict[str, Any]:  # noqa: B008
+async def upload_source(
+    file: UploadFile = File(...),
+    week_start: str = Form(None)
+) -> dict[str, Any]:  # noqa: B008
     if not file.filename or Path(file.filename).suffix.casefold() != ".xlsx":
         raise HTTPException(415, "Chỉ nhận file Excel định dạng .xlsx.")
     target = UPLOADS / f"{uuid.uuid4().hex}.xlsx"
     with target.open("wb") as output:
         shutil.copyfileobj(file.file, output)
     try:
-        return {"id": import_excel(target, file.filename), "status": "draft"}
+        return {"id": import_excel(target, file.filename, week_start), "status": "draft"}
     except Exception:
         target.unlink(missing_ok=True)
         raise
@@ -410,6 +440,28 @@ def published_schedule(work_date: str | None = None) -> list[dict[str, Any]]:
     query += " ORDER BY d.work_date,a.sort_order,r.sort_order,s.shift"
     with db() as con:
         return [dict(row) for row in con.execute(query, params)]
+
+
+@router.get("/api/schedule/view")
+def get_schedule_view(week_start: str, facility: int) -> dict[str, Any]:
+    query = """SELECT i.id AS import_id, a.name AS area_name, r.name AS room_name, r.work_time,
+                      d.work_date, d.label, s.shift, s.state, s.value
+               FROM schedule_shifts s JOIN schedule_rooms r ON r.id=s.room_id
+               JOIN schedule_areas a ON a.id=r.area_id JOIN schedule_days d ON d.id=s.day_id
+               JOIN schedule_imports i ON i.id=a.import_id 
+               WHERE i.status='published' AND i.week_start=? AND i.facility=?"""
+    
+    days_query = """SELECT DISTINCT d.work_date, d.label, d.sort_order
+                    FROM schedule_days d
+                    JOIN schedule_imports i ON i.id = d.import_id
+                    WHERE i.status='published' AND i.week_start=? AND i.facility=?
+                    ORDER BY d.sort_order"""
+                    
+    with db() as con:
+        shifts = [dict(row) for row in con.execute(query, (week_start, facility))]
+        days = [dict(row) for row in con.execute(days_query, (week_start, facility))]
+        
+    return {"status": "success", "shifts": shifts, "days": days}
 
 
 def create_schedule_app() -> FastAPI:
