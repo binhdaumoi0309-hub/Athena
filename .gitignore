@@ -4,5 +4,12 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .env
+.cache/
+playwright-report/
+test-results/
+.playwright-mcp/
 appointment_requests.jsonl
 
+*.db
+/hanoi_heart_assistant/.adk
+/hanoi_heart_assistant/data

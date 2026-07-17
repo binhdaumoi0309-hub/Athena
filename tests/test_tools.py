@@ -5,13 +5,6 @@ from hanoi_heart_assistant.tools.appointment_tools import (
     submit_appointment_request,
 )
 from hanoi_heart_assistant.tools.medical_tools import search_medical_knowledge
-from hanoi_heart_assistant.tools.price_tools import search_service_prices
-
-
-def test_price_search_is_accent_insensitive() -> None:
-    result = search_service_prices("sieu am tim")
-    assert result["status"] == "success"
-    assert result["matches"][0]["code"] == "DEMO-ECHO"
 
 
 def test_medical_search_flags_emergency() -> None:

@@ -10,8 +10,8 @@ hanoi_heart_customer_care_coordinator
 ```
 
 Agent điều phối dùng cơ chế `sub_agents` của Google ADK để tự động chuyển giao yêu cầu.
-Các tool hiện dùng **dữ liệu demo**, được cô lập để có thể thay bằng API bảng giá/HIS,
-kho tri thức RAG đã kiểm duyệt và API đặt lịch thật.
+Tool đặt lịch và một phần kho kiến thức y khoa vẫn dùng **dữ liệu demo**. Price agent đã dùng
+Firestore Vector Search chứa dữ liệu website/PDF/ảnh được crawl và OCR ngoại tuyến.
 
 ## Chạy bằng uv
 
@@ -48,6 +48,57 @@ uv run adk run hanoi_heart_assistant
 uv run pytest
 uv run ruff check .
 ```
+
+## Đồng bộ website, PDF, ảnh vào Firestore Vector Search
+
+`service_price_agent` không duyệt web trong phiên chat. Việc crawl website, tải Google Drive,
+đọc PDF/ảnh và Vision OCR chạy ngoại tuyến; kết quả được chia chunk, tạo embedding qua
+`OPENAI_BASE_URL` và lưu vào Cloud Firestore của Firebase. Agent chỉ có tool
+`search_hospital_vector_database` để semantic search dữ liệu đã đồng bộ.
+
+Mặc định `DOCUMENT_EXTRACTION_BACKEND=auto`: nếu có `GEMINI_API_KEY`, pipeline dùng Files API;
+nếu không, pipeline gửi PDF/ảnh inline qua `OPENAI_BASE_URL` và dùng cùng API key hoặc Google ADC
+như agent trong `llm.py`. Có thể ép backend thành `files_api` hoặc `openai_compatible`. Sau đó cài
+Chromium một lần và chạy:
+
+```powershell
+uv sync
+uv run playwright install chromium
+uv run python -m hanoi_heart_assistant.tools.firebase_ingestion --max-pages 40
+uv run pytest
+```
+
+Kết quả mặc định được ghi nguyên tử vào
+`hanoi_heart_assistant/data/hospital_knowledge.json`; file cũ chỉ bị thay sau khi crawl và trích xuất
+hoàn tất. Nên chạy lệnh này bằng scheduler, kiểm duyệt `crawl_errors` và các mức giá mới trước khi
+phát hành. File tải tạm nằm dưới `.cache/hospital_documents` và không được commit.
+
+Nếu JSON đã được crawl/OCR trước đó, có thể chỉ tạo embeddings và ghi Firestore:
+
+```powershell
+uv run python -m hanoi_heart_assistant.tools.firebase_ingestion --skip-crawl
+```
+
+Tạo vector index một lần (dimension phải khớp `.env`):
+
+```powershell
+uv run python -m hanoi_heart_assistant.tools.firebase_ingestion --create-index
+```
+
+Để bổ sung raw text của website mà không OCR lại PDF/ảnh đã xử lý:
+
+```powershell
+uv run python -m hanoi_heart_assistant.tools.firebase_ingestion --crawl-web-only --max-pages 40
+```
+
+Ingestion dùng chunk ID theo SHA-256. Các lần chạy sau chỉ tạo embedding cho chunk mới hoặc khi
+model/dimension thay đổi; chunks cũ được tái sử dụng và dữ liệu không còn trong corpus sẽ được xóa
+nếu `FIREBASE_VECTOR_PRUNE_STALE=true`.
+
+Firestore không tự tạo embedding. Endpoint OpenAI-compatible hiện tại không expose `/embeddings`,
+vì vậy pipeline mặc định dùng Google Gen AI SDK trên Vertex AI với cùng project/ADC, model
+`gemini-embedding-001` và giảm đầu ra còn 768 chiều. Vẫn có thể đặt backend thành
+`openai_compatible` nếu endpoint khác hỗ trợ embeddings. Firestore hỗ trợ tối đa 2048 chiều.
 
 ## Tích hợp website qua REST/SSE
 
@@ -87,8 +138,8 @@ rate limit, CORS, audit log, che dữ liệu nhạy cảm và không để API k
 
 ## Các điểm cần thay trước production
 
-1. Thay `PRICE_CATALOG` trong `tools/price_tools.py` bằng nguồn bảng giá chính thức có
-   ngày hiệu lực, đối tượng BHYT và cơ chế cache.
+1. Lập lịch chạy `firebase_ingestion`, kiểm duyệt dữ liệu OCR, theo dõi trạng thái vector index,
+   quota/cost Firestore và giữ ngày hiệu lực cùng phạm vi BHYT trong metadata nguồn.
 2. Thay `KNOWLEDGE_BASE` bằng RAG chỉ truy xuất tài liệu đã được bệnh viện phê duyệt;
    lưu nguồn, phiên bản và ngày duyệt để câu trả lời có trích dẫn.
 3. Nối `appointment_tools.py` với API lịch khám thật, có giữ chỗ idempotent, OTP xác
