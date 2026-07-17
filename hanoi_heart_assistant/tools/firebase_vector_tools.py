@@ -390,3 +390,45 @@ async def search_hospital_vector_database(query: str, limit: int = 8) -> dict[st
 
 def load_knowledge_file(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+async def search_doctors_vector_database(query: str, limit: int = 5) -> dict[str, Any]:
+    """Tìm kiếm danh sách bác sĩ phù hợp dựa trên năng lực, chuyên môn, triệu chứng bệnh và khu vực khám.
+
+    Args:
+        query: Triệu chứng bệnh của bệnh nhân, chuyên khoa yêu cầu, tên bác sĩ hoặc khu vực khám.
+        limit: Số lượng bác sĩ tối đa cần trả về (từ 1 đến 10).
+    """
+    query = query.strip()
+    if not query:
+        return {"status": "error", "message": "Vui lòng nhập nội dung cần tìm kiếm bác sĩ."}
+    try:
+        def _search():
+            query_vector = embed_texts([query], task_type="RETRIEVAL_QUERY")[0]
+            collection = _firestore_client().collection("doctor_capabilities")
+            vector_query = collection.find_nearest(
+                vector_field="embedding",
+                query_vector=Vector(query_vector),
+                distance_measure=DistanceMeasure.COSINE,
+                limit=max(1, min(limit, 10)),
+                distance_result_field="vector_distance",
+            )
+            matches = []
+            for snapshot in vector_query.stream():
+                data = snapshot.to_dict()
+                matches.append({
+                    "id": data.get("id"),
+                    "name": data.get("title"),
+                    "description": data.get("content"),
+                    "zone": data.get("zone"),
+                    "vector_distance": data.get("vector_distance")
+                })
+            return {"status": "success", "matches": matches}
+        return await asyncio.to_thread(_search)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "message": str(exc),
+            "hint": "Đảm bảo đã chạy ingestion cho bác sĩ và đã tạo index cho collection 'doctor_capabilities'."
+        }
+
