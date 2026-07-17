@@ -86,9 +86,22 @@ function editor(shift) {
     const input = document.createElement('textarea');
     input.value = shift.value || '';
     input.disabled = shift.state !== 'working';
+    
+    const countIndicator = document.createElement('div');
+    countIndicator.style.fontSize = '10px';
+    countIndicator.style.color = '#61748e';
+    countIndicator.style.marginTop = '4px';
+    countIndicator.style.textAlign = 'right';
+    countIndicator.textContent = shift.state === 'working' ? `Đã đặt: ${shift.booked_count || 0}/6` : '';
+
     select.onchange = () => {
         input.disabled = select.value !== 'working';
-        if (input.disabled) input.value = '';
+        if (input.disabled) {
+            input.value = '';
+            countIndicator.textContent = '';
+        } else {
+            countIndicator.textContent = `Đã đặt: ${shift.booked_count || 0}/6`;
+        }
     };
     const save = document.createElement('button');
     save.type = 'button';
@@ -107,7 +120,7 @@ function editor(shift) {
         }
     };
     head.append(name, select, save);
-    box.append(head, input);
+    box.append(head, input, countIndicator);
     return box;
 }
 
@@ -249,7 +262,10 @@ function renderViewer(data) {
                     const labelSpan = document.createElement('span');
                     labelSpan.className = 'view-cell-label';
                     labelSpan.textContent = 'Sáng';
-                    mDiv.append(labelSpan, document.createTextNode(mShift.state === 'working' ? mShift.value : (mShift.state === 'closed' ? 'Nghỉ' : 'Trống')));
+                    const text = mShift.state === 'working' 
+                        ? `${mShift.value} (Đã đặt: ${mShift.booked_count || 0}/6)` 
+                        : (mShift.state === 'closed' ? 'Nghỉ' : 'Trống');
+                    mDiv.append(labelSpan, document.createTextNode(text));
                 } else {
                     mDiv.textContent = 'Sáng: Trống';
                 }
@@ -262,7 +278,10 @@ function renderViewer(data) {
                     const labelSpan = document.createElement('span');
                     labelSpan.className = 'view-cell-label';
                     labelSpan.textContent = 'Chiều';
-                    aDiv.append(labelSpan, document.createTextNode(aShift.state === 'working' ? aShift.value : (aShift.state === 'closed' ? 'Nghỉ' : 'Trống')));
+                    const text = aShift.state === 'working' 
+                        ? `${aShift.value} (Đã đặt: ${aShift.booked_count || 0}/6)` 
+                        : (aShift.state === 'closed' ? 'Nghỉ' : 'Trống');
+                    aDiv.append(labelSpan, document.createTextNode(text));
                 } else {
                     aDiv.textContent = 'Chiều: Trống';
                 }

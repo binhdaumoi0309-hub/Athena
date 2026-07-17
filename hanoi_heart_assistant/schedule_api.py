@@ -8,6 +8,7 @@ The published shift records are read by ``tools.schedule_tools``.
 from __future__ import annotations
 
 import re
+import os
 import shutil
 import sqlite3
 import uuid
@@ -21,6 +22,8 @@ from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+from hanoi_heart_assistant.tools.firebase_vector_tools import _firestore_client
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DATA = PACKAGE_ROOT / "data"
@@ -80,7 +83,9 @@ def init_db() -> None:
               day_id INTEGER NOT NULL REFERENCES schedule_days(id) ON DELETE CASCADE,
               shift TEXT NOT NULL CHECK(shift IN ('morning', 'afternoon')),
               state TEXT NOT NULL CHECK(state IN ('working', 'closed', 'empty')),
-              value TEXT, updated_at TEXT NOT NULL,
+              value TEXT,
+              booked_count INTEGER DEFAULT 0 CHECK(booked_count >= 0),
+              updated_at TEXT NOT NULL,
               UNIQUE(room_id, day_id, shift),
               CHECK((state = 'working' AND value IS NOT NULL AND trim(value) <> '')
                  OR (state IN ('closed', 'empty') AND value IS NULL))
@@ -96,6 +101,11 @@ def init_db() -> None:
             cols = [row["name"] for row in cursor.fetchall()]
             if "facility" not in cols:
                 con.execute("ALTER TABLE schedule_imports ADD COLUMN facility INTEGER DEFAULT 1")
+                
+            cursor2 = con.execute("PRAGMA table_info(schedule_shifts)")
+            cols2 = [row["name"] for row in cursor2.fetchall()]
+            if "booked_count" not in cols2:
+                con.execute("ALTER TABLE schedule_shifts ADD COLUMN booked_count INTEGER DEFAULT 0")
         except Exception:
             pass
 
@@ -462,6 +472,110 @@ def get_schedule_view(week_start: str, facility: int) -> dict[str, Any]:
         days = [dict(row) for row in con.execute(days_query, (week_start, facility))]
         
     return {"status": "success", "shifts": shifts, "days": days}
+
+
+class BookingRequest(BaseModel):
+    facilityId: str
+    specialtyId: str
+    doctorId: str
+    date: str
+    time: str
+    patientName: str
+    patientPhone: str
+    patientEmail: str | None = None
+    patientDob: str | None = None
+    patientGender: str | None = None
+    symptoms: str | None = None
+
+
+def get_max_bookings() -> int:
+    try:
+        return int(os.getenv("MAX_BOOKINGS_PER_SHIFT", "6"))
+    except ValueError:
+        return 6
+
+
+@router.post("/appointments")
+@router.post("/api/appointments")
+async def create_appointment(request: BookingRequest) -> dict[str, Any]:
+    try:
+        hour = int(request.time.split(":")[0])
+        shift = "morning" if hour < 12 else "afternoon"
+    except (ValueError, IndexError):
+        raise HTTPException(422, "Khung giờ khám không hợp lệ (định dạng HH:MM).")
+
+    query = """SELECT s.id, s.booked_count, s.value, r.name AS room_name, i.facility
+               FROM schedule_shifts s JOIN schedule_rooms r ON r.id=s.room_id
+               JOIN schedule_areas a ON a.id=r.area_id JOIN schedule_days d ON d.id=s.day_id
+               JOIN schedule_imports i ON i.id=a.import_id 
+               WHERE i.status='published' AND d.work_date=? AND s.shift=? AND s.value=?"""
+    
+    with db() as con:
+        row = con.execute(query, (request.date, shift, request.doctorId)).fetchone()
+        
+    if not row:
+        raise HTTPException(422, f"Bác sĩ {request.doctorId} không có ca trực đã publish vào ngày {request.date} ({'Sáng' if shift == 'morning' else 'Chiều'}).")
+        
+    shift_id = row["id"]
+    current_booked = row["booked_count"] or 0
+    max_bookings = get_max_bookings()
+    
+    if current_booked >= max_bookings:
+        raise HTTPException(409, f"Ca trực của bác sĩ đã đầy (tối đa {max_bookings} người đăng ký).")
+        
+    try:
+        fs_client = _firestore_client()
+        code = f"BVT-{uuid.uuid4().hex[:8].upper()}"
+        app_id = str(uuid.uuid4())
+        appointment_data = {
+            "id": app_id,
+            "code": code,
+            "doctorId": request.doctorId,
+            "doctorName": request.doctorId,
+            "specialtyId": request.specialtyId,
+            "specialty": request.specialtyId,
+            "facilityId": request.facilityId,
+            "facilityName": "Bệnh viện Tim Hà Nội — " + ("Cơ sở 2" if "2" in request.facilityId else "Cơ sở 1"),
+            "date": request.date,
+            "time": request.time,
+            "status": "upcoming",
+            "patientName": request.patientName,
+            "patientPhone": request.patientPhone,
+            "patientEmail": request.patientEmail,
+            "patientDob": request.patientDob,
+            "patientGender": request.patientGender,
+            "symptoms": request.symptoms,
+            "shift_id": shift_id,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        fs_client.collection("appointments").document(app_id).set(appointment_data)
+    except Exception as e:
+        raise HTTPException(500, f"Không thể lưu lịch hẹn lên Firebase: {str(e)}")
+        
+    with db() as con:
+        con.execute("UPDATE schedule_shifts SET booked_count = booked_count + 1 WHERE id=?", (shift_id,))
+        
+    return appointment_data
+
+
+@router.get("/appointments")
+@router.get("/api/appointments")
+async def list_appointments(phone: str | None = None) -> list[dict[str, Any]]:
+    try:
+        fs_client = _firestore_client()
+        query = fs_client.collection("appointments")
+        if phone:
+            query = query.where("patientPhone", "==", phone)
+        docs = query.stream()
+        results = []
+        for doc in docs:
+            data = doc.to_dict()
+            results.append(data)
+        results.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+        return results
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi truy vấn lịch đặt từ Firebase: {str(e)}")
+
 
 
 def create_schedule_app() -> FastAPI:
