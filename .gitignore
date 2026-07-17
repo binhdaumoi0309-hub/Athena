@@ -13,3 +13,4 @@ appointment_requests.jsonl
 *.db
 /hanoi_heart_assistant/.adk
 /hanoi_heart_assistant/data
+/frontend/node_modules

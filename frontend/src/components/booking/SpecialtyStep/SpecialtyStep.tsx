@@ -1,0 +1,2 @@
+import { Check, HeartPulse } from 'lucide-react';import type{BookingStepProps}from'../types';import styles from'./SpecialtyStep.module.css';
+export function SpecialtyStep({data,update,specialties}:BookingStepProps){return <div className={styles.grid}>{specialties.map((item)=><button type="button" key={item.id} className={data.specialtyId===item.id?styles.selected:undefined} onClick={()=>update({specialtyId:item.id,doctorId:''})}><HeartPulse/><span><strong>{item.name}</strong><small>{item.description}</small></span>{data.specialtyId===item.id&&<Check/>}</button>)}</div>}

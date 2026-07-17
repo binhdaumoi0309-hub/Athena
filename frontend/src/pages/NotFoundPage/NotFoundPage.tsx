@@ -1,0 +1,2 @@
+import{ArrowLeft,HeartPulse,Home}from'lucide-react';import{Link}from'react-router-dom';import styles from'./NotFoundPage.module.css';
+export function NotFoundPage(){return <section className={styles.page}><div><HeartPulse/><strong>404</strong><h1>Không tìm thấy trang</h1><p>Trang bạn đang tìm có thể đã được di chuyển hoặc đường dẫn không chính xác.</p><div><Link to="/"><Home/>Về trang chủ</Link><button onClick={()=>history.back()}><ArrowLeft/>Quay lại</button></div></div></section>}

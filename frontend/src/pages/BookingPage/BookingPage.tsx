@@ -1,0 +1,2 @@
+import { BookingFlow } from '../../components/booking/BookingFlow';import { PageHero } from '../../components/common/PageHero';import styles from'./BookingPage.module.css';
+export function BookingPage(){return <><PageHero eyebrow="Đặt lịch trực tuyến" title="Đặt lịch khám" description="Chọn cơ sở, chuyên khoa, bác sĩ và thời gian phù hợp. Dữ liệu của bạn được lưu khi quay lại bước trước."/><section className={styles.section}><div className="container"><BookingFlow/></div></section></>}
