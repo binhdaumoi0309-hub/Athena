@@ -13,14 +13,48 @@ Agent điều phối dùng cơ chế `sub_agents` của Google ADK để tự đ
 Tool đặt lịch và một phần kho kiến thức y khoa vẫn dùng **dữ liệu demo**. Price agent đã dùng
 Firestore Vector Search chứa dữ liệu website/PDF/ảnh được crawl và OCR ngoại tuyến.
 
-## Chạy bằng uv
+## Chạy website đầy đủ (development)
 
-Yêu cầu: `uv` và thông tin xác thực cho OpenAI-compatible endpoint.
+Yêu cầu: Python 3.11 + `uv`, Node.js 20.19+ hoặc 22.12+, Firebase/Firestore đã được
+cấu hình và thông tin xác thực cho OpenAI-compatible endpoint.
+
+1. Tạo cấu hình backend và cài Python dependencies:
 
 ```powershell
 Copy-Item .env.example .env
-# Điền OPENAI_BASE_URL và chọn API key tĩnh hoặc Google ADC trong .env
+# Điền OPENAI_BASE_URL; chọn OPENAI_API_KEY hoặc Google ADC.
+# Đặt JWT_SECRET_KEY bằng giá trị ngẫu nhiên, dài.
 uv sync
+```
+
+2. Tạo cấu hình frontend và cài dependencies:
+
+```powershell
+Copy-Item frontend/.env.example frontend/.env
+cd frontend
+npm ci
+cd ..
+```
+
+3. Mở ba terminal từ thư mục gốc dự án:
+
+```powershell
+# Terminal 1 — Hospital Backend: auth, hồ sơ, lịch khám, đặt lịch
+uv run uvicorn hanoi_heart_assistant.service:app --reload --port 8002
+
+# Terminal 2 — Google ADK API cho chatbot
+uv run adk api_server --port 8000 --allow_origins http://localhost:3000 --session_service_uri sqlite:///./adk_sessions.db
+
+# Terminal 3 — website; Vite proxy các đường dẫn /booking-api và /adk-api
+cd frontend
+npm run dev
+```
+
+Mở `http://localhost:3000`. Cổng `8001` chỉ cần khi quản trị viên import/duyệt lịch Excel.
+
+`adk web --port 8000` vẫn dùng được để thử agent độc lập, nhưng không phải lệnh chạy website:
+
+```powershell
 uv run adk web --port 8000
 ```
 
@@ -35,7 +69,7 @@ gcloud auth application-default login
 `hanoi_heart_assistant/llm.py` cũng dùng cùng cơ chế khi cần gọi OpenAI SDK trực tiếp;
 các ADK agent dùng `get_adk_model()` thông qua LiteLLM.
 
-Mở `http://localhost:8000`, chọn `hanoi_heart_assistant` và thử:
+Trong ADK web, chọn `hanoi_heart_assistant` và thử:
 
 - `Siêu âm tim giá bao nhiêu?`
 - `Đau ngực khi nào cần đi cấp cứu?`
@@ -104,21 +138,21 @@ vì vậy pipeline mặc định dùng Google Gen AI SDK trên Vertex AI với c
 
 ## Nhập và duyệt lịch khám (Module 4)
 
-Module 4 đã được nối vào backend hiện tại qua cùng SQLite database. Chạy API review
-và frontend preview bằng:
+Module này là portal quản trị độc lập, lưu bản nháp và lịch đã duyệt trong Firestore. Chạy portal
+để import/duyệt Excel bằng:
 
 ```powershell
 uv sync
 uv run uvicorn hanoi_heart_assistant.schedule_api:app --reload --port 8001
 ```
 
-Mở `http://127.0.0.1:8001`. Upload `.xlsx` tại màn hình này sẽ tạo bản nháp trong
-`hanoi_heart_assistant/data/schedule.db`, tách mỗi ô thành ca sáng/chiều, cho phép sửa từng ca và
-chỉ đưa vào truy vấn chatbot sau khi bấm **Duyệt & publish**. Các endpoint import/review
+Mở `http://127.0.0.1:8001`. Upload `.xlsx` sẽ tạo bản nháp trên Firestore, tách mỗi ô thành
+ca sáng/chiều, cho phép sửa từng ca và chỉ đưa vào truy vấn chatbot sau khi bấm
+**Duyệt & publish**. Các endpoint import/review
 là `POST /api/sources`, `GET /api/sources/{id}`, `PATCH /api/shifts/{id}` và
 `POST /api/sources/{id}/approve`.
 
-Agent đặt lịch dùng `search_published_schedule` để đọc các ca đã publish từ chính DB này.
+Agent đặt lịch dùng `search_published_schedule` để đọc các ca Firestore đã publish.
 
 `hanoi_heart_assistant.schedule_api` là một component độc lập: lệnh trên chạy riêng
 để duyệt lịch. Nếu dự án có FastAPI host chung, mount UI/API lịch tại `/schedule`:
@@ -132,7 +166,7 @@ mount_schedule(app)  # /schedule và /schedule/api/...
 ```
 
 
-## Tích hợp website qua REST/SSE
+## API website và session
 
 Chạy backend website (xác thực, hồ sơ, lịch khám và đặt lịch) từ thư mục gốc:
 
@@ -141,8 +175,13 @@ uv run uvicorn hanoi_heart_assistant.service:app --reload --port 8002
 ```
 
 API xác thực và booking cùng nằm dưới `http://127.0.0.1:8002/api`; không cần chạy
-`hanoi_heart_assistant.auth.main` riêng. Để frontend dùng backend này, đặt
-`VITE_API_BASE_URL=http://127.0.0.1:8002/api` trong `frontend/.env`.
+`hanoi_heart_assistant.auth.main` riêng. `frontend/.env.example` đã dùng Vite proxy
+`/booking-api/api`, nên không cần đặt URL tuyệt đối trong development.
+
+Đăng nhập trả access token sống 15 phút và đặt refresh token trong cookie `HttpOnly` sống 30 ngày.
+Frontend tự refresh khi API trả `401`. Có thể cấu hình qua `ACCESS_TOKEN_EXPIRE_MINUTES`,
+`REFRESH_TOKEN_EXPIRE_DAYS`, `REFRESH_COOKIE_SECURE` và `REFRESH_COOKIE_SAMESITE` trong `.env`.
+Khi chạy HTTPS production, đặt `REFRESH_COOKIE_SECURE=true` và thay `JWT_SECRET_KEY` mặc định.
 
 Chạy ADK API server từ thư mục gốc:
 

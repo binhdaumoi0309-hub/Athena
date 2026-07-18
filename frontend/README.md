@@ -6,9 +6,9 @@ Website React + TypeScript được tái cấu trúc từ bundle Figma `Redesign
 
 Yêu cầu Node.js 20.19+ hoặc 22.12+.
 
-```bash
-npm install
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
+npm ci
 npm run dev
 ```
 
@@ -22,8 +22,7 @@ npm run preview
 
 ## Biến môi trường
 
-- `VITE_API_BASE_URL`: base URL Hospital Backend (ví dụ `http://127.0.0.1:8002/api`) cho xác thực, hồ sơ, lịch khám và đặt lịch. Để trống để chạy hoàn toàn bằng mock.
-- `VITE_BOOKING_API_BASE_URL`: tuỳ chọn; chỉ dùng khi Booking API được triển khai tách backend. Mặc định dùng `VITE_API_BASE_URL`.
+- `VITE_API_BASE_URL` và `VITE_BOOKING_API_BASE_URL`: mặc định là `/booking-api/api`; Vite proxy các request này tới `BOOKING_API_PROXY_TARGET` (`http://127.0.0.1:8002`). Giữ cả hai giá trị này để chạy đầy đủ backend.
 - `VITE_APP_NAME`: tên ứng dụng.
 - `VITE_DEFAULT_LANGUAGE`: ngôn ngữ mặc định.
 - `VITE_ADK_API_BASE_URL`: đường dẫn Google ADK API Server. Development dùng `/adk-api` và Vite chuyển tiếp tới `http://127.0.0.1:8000`.
@@ -34,20 +33,25 @@ File `.env.example` cũng ghi chú tên tương đương `NEXT_PUBLIC_*` nếu c
 
 ## Điểm nối REST API
 
-Tất cả request đi qua `src/services/apiClient.ts`. Khi `VITE_API_BASE_URL` có giá trị, các service tự chuyển từ mock sang REST:
+Tất cả request REST đi qua `src/services/apiClient.ts` hoặc `src/services/bookingApiClient.ts`:
 
-- `authService`: `/auth/login`, `/auth/register`, `/auth/forgot-password`.
-- `doctorService`: `/doctors`, `/doctors/:id`, `/specialties`.
+- `authService`: `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/patients/me`.
+- `doctorService`: `/doctors`, `/doctors/:id`.
 - `scheduleService`: `/facilities`, `/schedules`.
-- `appointmentService`: `/appointments`.
-- `pricingService`: `/pricing`.
+- `appointmentService`: `/appointments`, `/appointments/me`.
 - `assistantService`: ADK `/apps/{app}/users/{user}/sessions/{session}` và `/run`.
+
+Trang quên mật khẩu hiện mới là UI demo; backend chưa có flow OTP/đặt lại mật khẩu.
 
 Chạy Hospital Backend tại thư mục gốc trước khi chạy frontend:
 
 ```powershell
 uv run uvicorn hanoi_heart_assistant.service:app --reload --port 8002
 ```
+
+Khi access token hết hạn, ứng dụng dùng refresh token cookie `HttpOnly` để lấy token mới. Để cơ chế
+này hoạt động, không thay `VITE_API_BASE_URL` và `VITE_BOOKING_API_BASE_URL` sang hai backend khác
+nhau. Xem README gốc để cấu hình session và HTTPS production.
 
 ## Chatbot trang đặt lịch
 
@@ -68,7 +72,6 @@ Response backend nên được map về type trong `src/types/index.ts`. Nếu s
 - `/`: trang chủ.
 - `/bac-si`, `/bac-si/:id`: danh sách và chi tiết bác sĩ.
 - `/chuyen-khoa`, `/lich-kham`, `/dat-lich`, `/dat-lich/xac-nhan`.
-- `/tro-ly-ai`: trợ lý thông tin bệnh viện.
 - `/dang-nhap`, `/dang-ky`, `/quen-mat-khau`.
 - `/tai-khoan`, `/tai-khoan/lich-hen`, `/tai-khoan/ho-so`, `/tai-khoan/bao-mat`.
 
