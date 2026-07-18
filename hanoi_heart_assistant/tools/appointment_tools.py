@@ -1,11 +1,9 @@
 """Appointment adapter utilizing Google Cloud Firestore for slot limits and bookings."""
 
-import re
 import os
+import re
 import uuid
 from datetime import date, datetime
-from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 DEPARTMENTS = {"tim_mach": "Tim mạch", "noi_tim_mach": "Nội tim mạch"}
@@ -13,7 +11,12 @@ DEMO_SLOTS = ("08:00", "09:30", "14:00", "15:30")
 
 
 def open_booking_page() -> dict:
-    """Ask the frontend to navigate to the hospital booking page."""
+    """Open the booking form for a user who says they want to book an appointment.
+
+    Call this tool immediately for explicit booking intent instead of merely telling
+    the user to visit the hospital website. The returned ``navigate`` action lets the
+    frontend take the user directly to the booking form.
+    """
     frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
     parsed_url = urlparse(frontend_url)
     if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
@@ -114,7 +117,11 @@ def submit_appointment_request(
         doctor_info = f" bác sĩ {doctor_name}" if doctor_name else ""
         return {
             "status": "error",
-            "message": f"Không tìm thấy ca trực nào của{doctor_info} vào ngày {parsed_date.isoformat()} ca {'Sáng' if shift == 'morning' else 'Chiều'}."
+            "message": (
+                f"Không tìm thấy ca trực nào của{doctor_info} vào ngày "
+                f"{parsed_date.isoformat()} ca "
+                f"{'Sáng' if shift == 'morning' else 'Chiều'}."
+            ),
         }
 
     # Pick the shift with the least booked_count if no specific doctor_name was given
@@ -182,5 +189,8 @@ def submit_appointment_request(
         "status": "success",
         "code": code,
         "appointment": appointment_data,
-        "message": f"Đặt lịch thành công cho bệnh nhân {full_name} khám bác sĩ {active_doctor} lúc {appointment_time} ngày {parsed_date.isoformat()}."
+        "message": (
+            f"Đặt lịch thành công cho bệnh nhân {full_name} khám bác sĩ "
+            f"{active_doctor} lúc {appointment_time} ngày {parsed_date.isoformat()}."
+        ),
     }
