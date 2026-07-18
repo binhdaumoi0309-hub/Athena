@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from hanoi_heart_assistant.observability import (
     TelemetryMiddleware,
     after_model_callback,
+    agent_observability_callbacks,
     emit_event,
 )
 from hanoi_heart_assistant.telemetry_api import create_telemetry_router
@@ -73,6 +74,50 @@ def test_after_model_callback_records_usage_without_message_content(monkeypatch)
             "reasoning_tokens": 2,
         }
     ]
+
+
+def test_agent_callbacks_accept_the_keyword_arguments_used_by_adk(monkeypatch) -> None:
+    monkeypatch.setattr("hanoi_heart_assistant.observability.emit_event", lambda *_, **__: None)
+    callbacks = agent_observability_callbacks()
+    context = SimpleNamespace(agent_name="test_agent", invocation_id="invocation-1")
+    response = SimpleNamespace(
+        model_version="gemini-test",
+        finish_reason="STOP",
+        error_code=None,
+        usage_metadata=None,
+    )
+    tool = SimpleNamespace(name="test_tool")
+
+    callbacks["before_model_callback"](
+        callback_context=context,
+        llm_request=SimpleNamespace(),
+    )
+    callbacks["after_model_callback"](
+        callback_context=context,
+        llm_response=response,
+    )
+    callbacks["on_model_error_callback"](
+        callback_context=context,
+        llm_request=SimpleNamespace(),
+        error=RuntimeError("private"),
+    )
+    callbacks["before_tool_callback"](
+        tool=tool,
+        args={},
+        tool_context=context,
+    )
+    callbacks["after_tool_callback"](
+        tool=tool,
+        args={},
+        tool_context=context,
+        tool_response={"status": "ok"},
+    )
+    callbacks["on_tool_error_callback"](
+        tool=tool,
+        args={},
+        tool_context=context,
+        error=RuntimeError("private"),
+    )
 
 
 def test_http_middleware_logs_route_template_not_identifier(monkeypatch) -> None:

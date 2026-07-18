@@ -108,20 +108,21 @@ def _finish_timing(key: tuple[str, ...]) -> float | None:
     return round((time.perf_counter() - started) * 1000, 2)
 
 
-def before_model_callback(context: Any, _: Any) -> None:
-    _start_timing(_timing_key(context, "model"))
+def before_model_callback(callback_context: Any, llm_request: Any) -> None:
+    del llm_request
+    _start_timing(_timing_key(callback_context, "model"))
 
 
-def after_model_callback(context: Any, response: Any) -> None:
-    usage = getattr(response, "usage_metadata", None)
-    error_code = getattr(response, "error_code", None)
-    duration_ms = _finish_timing(_timing_key(context, "model"))
+def after_model_callback(callback_context: Any, llm_response: Any) -> None:
+    usage = getattr(llm_response, "usage_metadata", None)
+    error_code = getattr(llm_response, "error_code", None)
+    duration_ms = _finish_timing(_timing_key(callback_context, "model"))
     fields: dict[str, Any] = {
         "telemetry_type": "agent",
         "outcome": "failure" if error_code else "success",
-        "agent_name": getattr(context, "agent_name", "unknown"),
-        "model_name": getattr(response, "model_version", "unknown"),
-        "finish_reason": getattr(response, "finish_reason", None),
+        "agent_name": getattr(callback_context, "agent_name", "unknown"),
+        "model_name": getattr(llm_response, "model_version", "unknown"),
+        "finish_reason": getattr(llm_response, "finish_reason", None),
     }
     if duration_ms is not None:
         fields["duration_ms"] = duration_ms
@@ -136,29 +137,36 @@ def after_model_callback(context: Any, response: Any) -> None:
     emit_event("model_call", severity="ERROR" if error_code else "INFO", **fields)
 
 
-def on_model_error_callback(context: Any, _: Any, error: Exception) -> None:
+def on_model_error_callback(
+    callback_context: Any,
+    llm_request: Any,
+    error: Exception,
+) -> None:
+    del llm_request
     emit_event(
         "model_call",
         severity="ERROR",
         telemetry_type="agent",
         outcome="failure",
-        agent_name=getattr(context, "agent_name", "unknown"),
-        duration_ms=_finish_timing(_timing_key(context, "model")),
+        agent_name=getattr(callback_context, "agent_name", "unknown"),
+        duration_ms=_finish_timing(_timing_key(callback_context, "model")),
         error_type=type(error).__name__,
     )
 
 
-def before_tool_callback(tool: Any, _: dict[str, Any], context: Any) -> None:
+def before_tool_callback(tool: Any, args: dict[str, Any], tool_context: Any) -> None:
+    del args
     name = str(getattr(tool, "name", None) or getattr(tool, "__name__", "unknown"))
-    _start_timing(_timing_key(context, "tool", name))
+    _start_timing(_timing_key(tool_context, "tool", name))
 
 
 def after_tool_callback(
     tool: Any,
-    _: dict[str, Any],
-    context: Any,
+    args: dict[str, Any],
+    tool_context: Any,
     tool_response: dict[str, Any],
 ) -> None:
+    del args
     name = str(getattr(tool, "name", None) or getattr(tool, "__name__", "unknown"))
     failed = isinstance(tool_response, dict) and bool(tool_response.get("error"))
     emit_event(
@@ -166,27 +174,28 @@ def after_tool_callback(
         severity="ERROR" if failed else "INFO",
         telemetry_type="agent",
         outcome="failure" if failed else "success",
-        agent_name=getattr(context, "agent_name", "unknown"),
+        agent_name=getattr(tool_context, "agent_name", "unknown"),
         tool_name=name,
-        duration_ms=_finish_timing(_timing_key(context, "tool", name)),
+        duration_ms=_finish_timing(_timing_key(tool_context, "tool", name)),
     )
 
 
 def on_tool_error_callback(
     tool: Any,
-    _: dict[str, Any],
-    context: Any,
+    args: dict[str, Any],
+    tool_context: Any,
     error: Exception,
 ) -> None:
+    del args
     name = str(getattr(tool, "name", None) or getattr(tool, "__name__", "unknown"))
     emit_event(
         "tool_call",
         severity="ERROR",
         telemetry_type="agent",
         outcome="failure",
-        agent_name=getattr(context, "agent_name", "unknown"),
+        agent_name=getattr(tool_context, "agent_name", "unknown"),
         tool_name=name,
-        duration_ms=_finish_timing(_timing_key(context, "tool", name)),
+        duration_ms=_finish_timing(_timing_key(tool_context, "tool", name)),
         error_type=type(error).__name__,
     )
 
