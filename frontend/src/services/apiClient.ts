@@ -1,4 +1,5 @@
 import type { ApiErrorShape } from '../types';
+import { getAccessToken, refreshAccessToken } from './authSession';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 const useMocks = !baseUrl;
@@ -13,14 +14,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
-    const token = localStorage.getItem('auth_token');
+    const token = getAccessToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
-    const response = await fetch(`${baseUrl}${path}`, {
+    let response = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers,
+      credentials: 'include',
     });
+    if (response.status === 401 && !path.startsWith('/auth/')) {
+      const refreshedToken = await refreshAccessToken(baseUrl);
+      if (refreshedToken) {
+        headers.set('Authorization', `Bearer ${refreshedToken}`);
+        response = await fetch(`${baseUrl}${path}`, {
+          ...options,
+          headers,
+          credentials: 'include',
+        });
+      }
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => ({})) as { message?: string; detail?: string; code?: string };
       throw new ApiError(response.status, body.code ?? 'API_ERROR', body.message ?? body.detail ?? 'Không thể xử lý yêu cầu');

@@ -1,15 +1,34 @@
 import random
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
-from .db_service import DBService
 from .auth_service import AuthService
+from .config import (
+    REFRESH_COOKIE_SAMESITE,
+    REFRESH_COOKIE_SECURE,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+)
+from .db_service import DBService
 
 router = APIRouter()
 db_service = DBService()
 security = HTTPBearer()
+REFRESH_COOKIE_NAME = "hospital_refresh_token"
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=REFRESH_COOKIE_SECURE,
+        samesite=REFRESH_COOKIE_SAMESITE,
+        path="/api/auth",
+    )
 
 # --- Pydantic Models ---
 class RegisterRequest(BaseModel):
@@ -101,7 +120,7 @@ async def register(req: RegisterRequest):
 
 
 @router.post("/auth/login")
-async def login(req: LoginRequest):
+async def login(req: LoginRequest, response: Response):
     """Authenticate credentials and return a JWT access token."""
     user = db_service.get_user_by_phone(req.phone)
     if not user:
@@ -125,6 +144,7 @@ async def login(req: LoginRequest):
         "phone": user["phone"]
     }
     access_token = AuthService.create_access_token(token_payload)
+    _set_refresh_cookie(response, AuthService.create_refresh_token(token_payload))
 
     return {
         "status": "success",
@@ -133,6 +153,33 @@ async def login(req: LoginRequest):
         "user_id": user["user_id"],
         "patient_id": user["patient_id"]
     }
+
+
+@router.post("/auth/refresh")
+async def refresh_access_token(request: Request):
+    """Issue a new short-lived access token from the HttpOnly refresh cookie."""
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    payload = AuthService.decode_refresh_token(refresh_token) if refresh_token else None
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+        )
+
+    access_token = AuthService.create_access_token(
+        {
+            "user_id": payload["user_id"],
+            "patient_id": payload["patient_id"],
+            "phone": payload["phone"],
+        }
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    """Clear the browser's refresh-token cookie."""
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path="/api/auth")
 
 
 @router.get("/patients/me")
@@ -306,6 +353,7 @@ CLINICAL_CASES = [
 ]
 
 from datetime import date, timedelta
+
 
 def generate_random_visit_date():
     # Random date within last 180 days

@@ -136,7 +136,20 @@ def test_register_and_login_flow():
     login_data = resp_login.json()
     assert login_data["status"] == "success"
     assert "access_token" in login_data
-    token = login_data["access_token"]
+    assert "hospital_refresh_token" in resp_login.headers["set-cookie"]
+
+    refreshed = client.post("/api/auth/refresh")
+    assert refreshed.status_code == 200
+    refreshed_token = refreshed.json()["access_token"]
+    profile = client.get(
+        "/api/patients/me",
+        headers={"Authorization": f"Bearer {refreshed_token}"},
+    )
+    assert profile.status_code == 200
+
+    logout = client.post("/api/auth/logout")
+    assert logout.status_code == 204
+    assert client.post("/api/auth/refresh").status_code == 401
 
     # 4. Login with wrong password should fail
     resp_wrong_pass = client.post("/api/auth/login", json={"phone": "0987654321", "password": "wrongpassword"})

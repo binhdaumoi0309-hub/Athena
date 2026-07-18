@@ -1,4 +1,5 @@
 import { ApiError } from './apiClient';
+import { getAccessToken, refreshAccessToken } from './authSession';
 
 const bookingBaseUrl = (
   import.meta.env.VITE_BOOKING_API_BASE_URL ||
@@ -10,11 +11,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   if (options.body) headers.set('Content-Type', 'application/json');
-  const token = localStorage.getItem('auth_token');
+  const token = getAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   try {
-    const response = await fetch(`${bookingBaseUrl}${path}`, { ...options, headers });
+    let response = await fetch(`${bookingBaseUrl}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+    if (response.status === 401) {
+      const refreshedToken = await refreshAccessToken(bookingBaseUrl);
+      if (refreshedToken) {
+        headers.set('Authorization', `Bearer ${refreshedToken}`);
+        response = await fetch(`${bookingBaseUrl}${path}`, {
+          ...options,
+          headers,
+          credentials: 'include',
+        });
+      }
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => ({})) as {
         detail?: string;

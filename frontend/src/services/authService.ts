@@ -1,4 +1,5 @@
 import { apiClient, mockDelay } from './apiClient';
+import { endSession } from './authSession';
 
 export interface AuthCredentials { phone: string; password: string; }
 export interface RegisterPayload extends AuthCredentials { fullName: string; email: string; }
@@ -156,9 +157,7 @@ export const authService = {
   },
 
   logout: () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('patient_id');
+    void endSession(import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '');
   },
 
   isAuthenticated: (): boolean => {
