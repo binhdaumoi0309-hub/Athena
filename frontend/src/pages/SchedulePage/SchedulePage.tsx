@@ -4,18 +4,25 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHero } from '../../components/common/PageHero';
 import { StatePanel } from '../../components/common/StatePanel';
-import { doctorService, scheduleService } from '../../services';
+import { AppointmentList } from '../../components/account/AppointmentList';
+import { appointmentService, authService, scheduleService } from '../../services';
 import styles from './SchedulePage.module.css';
 
 export function SchedulePage() {
   const [doctorId, setDoctorId] = useState('');
   const doctors = useQuery({
-    queryKey: ['doctors'],
-    queryFn: () => doctorService.list(),
+    queryKey: ['booking-doctors', 'all'],
+    queryFn: () => scheduleService.doctors(''),
   });
   const schedule = useQuery({
     queryKey: ['schedule', doctorId],
     queryFn: () => scheduleService.list(doctorId),
+  });
+  const appointments = useQuery({
+    queryKey: ['appointments'],
+    queryFn: appointmentService.list,
+    enabled: authService.isAuthenticated(),
+    refetchOnMount: 'always',
   });
 
   return (
@@ -27,6 +34,24 @@ export function SchedulePage() {
       />
       <section className="section">
         <div className="container">
+          <div className={styles.myAppointments}>
+            <h2>Lịch khám của bạn</h2>
+            {appointments.isLoading ? (
+              <StatePanel kind="loading" title="Đang tải lịch khám của bạn" />
+            ) : appointments.isError ? (
+              <StatePanel
+                kind="error"
+                title="Không thể tải lịch khám của bạn"
+                onRetry={() => void appointments.refetch()}
+              />
+            ) : appointments.data?.length ? (
+              <AppointmentList appointments={appointments.data} />
+            ) : (
+              <p className={styles.emptyAppointments}>Bạn không có lịch khám nào.</p>
+            )}
+          </div>
+
+          <h2 className={styles.lookupTitle}>Tra cứu lịch còn chỗ</h2>
           <div className={styles.filter}>
             <Filter size={19} />
             <label htmlFor="schedule-doctor">Chọn bác sĩ</label>
@@ -37,8 +62,8 @@ export function SchedulePage() {
             >
               <option value="">Tất cả bác sĩ</option>
               {doctors.data?.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.title} {doctor.name}
+                <option key={doctor.name} value={doctor.name}>
+                  {doctor.name}
                 </option>
               ))}
             </select>
@@ -75,13 +100,15 @@ export function SchedulePage() {
                         }
                       >
                         <Clock size={14} />
-                        {slot.time}
+                        {slot.label ?? slot.time}
                         <small>
                           {slot.status === 'full'
                             ? 'Hết lịch'
                             : slot.status === 'just_booked'
                               ? 'Vừa đặt'
-                              : 'Còn chỗ'}
+                              : typeof slot.remaining_capacity === 'number'
+                                ? `Còn ${slot.remaining_capacity} chỗ`
+                                : 'Còn chỗ'}
                         </small>
                       </Link>
                     ))}

@@ -1,2 +1,57 @@
-import{CalendarDays,Clock3,MapPin,Stethoscope}from'lucide-react';import{Link}from'react-router-dom';import type{Appointment}from'../../../types';import styles from'./AppointmentList.module.css';
-const labels={upcoming:'Sắp tới',completed:'Đã khám',cancelled:'Đã hủy'};export function AppointmentList({appointments}:{appointments:Appointment[]}){return <div className={styles.list}>{appointments.map((item)=><article key={item.id}><header><strong>{item.code}</strong><span className={styles[item.status]}>{labels[item.status]}</span></header><h2>{item.doctorName}</h2><p><Stethoscope/>{item.specialty}</p><div><span><CalendarDays/>{item.date}</span><span><Clock3/>{item.time}</span><span><MapPin/>{item.facilityName}</span></div><footer><Link to={`/dat-lich?doctor=${item.id}`}>Đặt lại lịch</Link>{item.status==='upcoming'&&<button>Hủy lịch</button>}</footer></article>)}</div>}
+import { useState } from 'react';
+import { CalendarDays, Clock3, MapPin } from 'lucide-react';
+import type { Appointment } from '../../../types';
+import { AppointmentDetailsModal } from '../AppointmentDetailsModal';
+import styles from './AppointmentList.module.css';
+
+const statusLabels = {
+  upcoming: 'Sắp tới',
+  completed: 'Đã khám',
+  cancelled: 'Đã hủy',
+};
+
+export function AppointmentList({ appointments }: { appointments: Appointment[] }) {
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+
+  return (
+    <>
+      <div className={styles.list}>
+        {appointments.map((appointment) => (
+          <article key={appointment.id}>
+            <header>
+              <strong>{appointment.code}</strong>
+              <span className={styles[appointment.status]}>
+                {statusLabels[appointment.status]}
+              </span>
+            </header>
+
+            <div className={styles.titleRow}>
+              <h2>{appointment.doctorName}</h2>
+              <div className={styles.actions}>
+                <button type="button" onClick={() => setSelectedAppointment(appointment)}>
+                  Xem thông tin
+                </button>
+                {appointment.status === 'upcoming' && (
+                  <button type="button">Hủy lịch</button>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.meta}>
+              <span><CalendarDays />{appointment.date}</span>
+              <span><Clock3 />{appointment.shift === 'morning' ? 'Buổi sáng' : appointment.shift === 'afternoon' ? 'Buổi chiều' : appointment.time}</span>
+              <span><MapPin />{appointment.facilityName}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {selectedAppointment && (
+        <AppointmentDetailsModal
+          appointment={selectedAppointment}
+          onClose={() => setSelectedAppointment(null)}
+        />
+      )}
+    </>
+  );
+}

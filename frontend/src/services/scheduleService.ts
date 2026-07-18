@@ -1,8 +1,25 @@
-import { facilities, schedules } from '../mocks/data';
-import type { Facility, ScheduleDay } from '../types';
-import { apiClient, mockDelay } from './apiClient';
+import type { AvailableDoctor, Facility, ScheduleDay } from '../types';
+import { bookingApiClient } from './bookingApiClient';
+
+function queryString(values: Record<string, string | undefined>): string {
+  const params = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
 
 export const scheduleService = {
-  facilities: async (): Promise<Facility[]> => apiClient.useMocks ? mockDelay(facilities) : apiClient.get('/facilities'),
-  list: async (doctorId?: string): Promise<ScheduleDay[]> => apiClient.useMocks ? mockDelay(schedules) : apiClient.get(`/schedules${doctorId ? `?doctor=${doctorId}` : ''}`),
+  facilities: async (): Promise<Facility[]> => bookingApiClient.get('/facilities'),
+
+  doctors: async (facilityId: string): Promise<AvailableDoctor[]> =>
+    bookingApiClient.get(
+      `/booking/doctors${queryString({ facility_id: facilityId })}`,
+    ),
+
+  list: async (doctor?: string, facilityId?: string): Promise<ScheduleDay[]> =>
+    bookingApiClient.get(
+      `/schedules${queryString({ doctor, facility: facilityId })}`,
+    ),
 };

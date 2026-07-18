@@ -1,4 +1,5 @@
 export * from './apiClient';
+export * from './bookingApiClient';
 export * from './authService';
 export * from './doctorService';
 export * from './scheduleService';

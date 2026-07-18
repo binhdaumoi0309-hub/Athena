@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarCheck, Check, LoaderCircle, ShieldCheck, WifiOff } from 'lucide-react';
+import { CalendarCheck, LoaderCircle, ShieldCheck, WifiOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { appointmentService, authService, doctorService, scheduleService } from '../../../services';
+import { appointmentService, authService, scheduleService } from '../../../services';
 import { useBooking } from '../../../hooks/useBooking';
 import type { BookingData } from '../../../types';
 import { StatePanel } from '../../common/StatePanel';
+import { vietnamProvinces } from '../../../constants/vietnamProvinces';
 import styles from './BookingFlow.module.css';
 
 const bookingSchema = z.object({
@@ -22,8 +23,10 @@ const bookingSchema = z.object({
     message: 'Vui lòng chọn giới tính',
   }),
   patientAddress: z.string().trim().min(5, 'Vui lòng nhập địa chỉ'),
+  patientHometown: z.string().min(1, 'Vui lòng chọn quê quán'),
+  symptoms: z.string().max(500, 'Triệu chứng tối đa 500 ký tự'),
   facilityId: z.string().min(1, 'Vui lòng chọn cơ sở'),
-  doctorId: z.string().min(1, 'Vui lòng chọn bác sĩ'),
+  doctorId: z.string(),
   date: z.string().min(1, 'Vui lòng chọn ngày khám'),
   time: z.string().min(1, 'Vui lòng chọn giờ khám'),
   confirmed: z.boolean().refine((value) => value, {
@@ -36,16 +39,13 @@ type BookingFormValues = z.infer<typeof bookingSchema>;
 export function BookingFlow() {
   const booking = useBooking();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const facilities = useQuery({
     queryKey: ['facilities'],
     queryFn: scheduleService.facilities,
-  });
-  const doctors = useQuery({
-    queryKey: ['doctors'],
-    queryFn: () => doctorService.list(),
   });
   const profile = useQuery({
     queryKey: ['patient_profile'],
@@ -74,6 +74,8 @@ export function BookingFlow() {
           ? booking.data.patientGender
           : undefined,
       patientAddress: booking.data.patientAddress,
+      patientHometown: booking.data.patientHometown,
+      symptoms: booking.data.symptoms,
       facilityId: booking.data.facilityId,
       doctorId: booking.data.doctorId,
       date: booking.data.date,
@@ -86,18 +88,17 @@ export function BookingFlow() {
   const selectedDoctor = watch('doctorId');
   const selectedDate = watch('date');
 
-  const schedules = useQuery({
-    queryKey: ['schedule', selectedDoctor],
-    queryFn: () => scheduleService.list(selectedDoctor),
+  const doctors = useQuery({
+    queryKey: ['booking-doctors', selectedFacility],
+    queryFn: () => scheduleService.doctors(selectedFacility),
+    enabled: Boolean(selectedFacility),
   });
 
-  const availableDoctors = useMemo(
-    () =>
-      doctors.data?.filter(
-        (doctor) => !selectedFacility || doctor.facilityId === selectedFacility,
-      ) ?? [],
-    [doctors.data, selectedFacility],
-  );
+  const schedules = useQuery({
+    queryKey: ['booking-schedule', selectedFacility, selectedDoctor],
+    queryFn: () => scheduleService.list(selectedDoctor || undefined, selectedFacility),
+    enabled: Boolean(selectedFacility),
+  });
 
   const selectedSchedule = schedules.data?.find((day) => day.date === selectedDate);
 
@@ -109,6 +110,8 @@ export function BookingFlow() {
         patientDob: values.patientDob ?? '',
         patientGender: values.patientGender ?? '',
         patientAddress: values.patientAddress ?? '',
+        patientHometown: values.patientHometown ?? '',
+        symptoms: values.symptoms ?? '',
         facilityId: values.facilityId ?? '',
         doctorId: values.doctorId ?? '',
         date: values.date ?? '',
@@ -132,6 +135,7 @@ export function BookingFlow() {
       patientDob: values.patientDob || profile.data.dob,
       patientGender: values.patientGender || gender,
       patientAddress: values.patientAddress || profile.data.address || '',
+      patientHometown: values.patientHometown || profile.data.hometown || '',
     };
 
     Object.entries(autofill).forEach(([field, value]) => {
@@ -150,9 +154,11 @@ export function BookingFlow() {
       patientDob: values.patientDob,
       patientGender: values.patientGender,
       patientAddress: values.patientAddress,
-      symptoms: '',
+      patientHometown: values.patientHometown,
+      patientCccd: profile.data?.cccd ?? booking.data.patientCccd,
+      symptoms: values.symptoms,
       facilityId: values.facilityId,
-      specialtyId: doctors.data?.find((doctor) => doctor.id === values.doctorId)?.specialtyId ?? '',
+      specialtyId: '',
       doctorId: values.doctorId,
       date: values.date,
       time: values.time,
@@ -160,6 +166,7 @@ export function BookingFlow() {
 
     try {
       const appointment = await appointmentService.create(payload);
+      await queryClient.invalidateQueries({ queryKey: ['appointments'] });
       booking.reset();
       navigate('/dat-lich/xac-nhan', { state: { appointment } });
     } catch {
@@ -171,18 +178,17 @@ export function BookingFlow() {
     }
   };
 
-  if (facilities.isLoading || doctors.isLoading) {
+  if (facilities.isLoading) {
     return <StatePanel kind="loading" title="Đang chuẩn bị biểu mẫu đặt lịch" />;
   }
 
-  if (facilities.isError || doctors.isError) {
+  if (facilities.isError) {
     return (
       <StatePanel
         kind="offline"
         title="Không thể tải dữ liệu đặt lịch"
         onRetry={() => {
           void facilities.refetch();
-          void doctors.refetch();
         }}
       />
     );
@@ -247,14 +253,37 @@ export function BookingFlow() {
             {errors.patientGender && <small>{errors.patientGender.message}</small>}
           </div>
 
+          <div className={styles.twoColumns}>
+            <label>
+              <span className={styles.labelText}>Địa chỉ <em className={styles.required}>*</em></span>
+              <input {...register('patientAddress')} placeholder="Nhập địa chỉ hiện tại" />
+              {errors.patientAddress && <small>{errors.patientAddress.message}</small>}
+            </label>
+            <label>
+              <span className={styles.labelText}>Quê quán <em className={styles.required}>*</em></span>
+              <select {...register('patientHometown')}>
+                <option value="">Chọn tỉnh / thành phố</option>
+                {profile.data?.hometown && !vietnamProvinces.includes(
+                  profile.data.hometown as (typeof vietnamProvinces)[number],
+                ) && (
+                  <option value={profile.data.hometown}>{profile.data.hometown}</option>
+                )}
+                {vietnamProvinces.map((province) => (
+                  <option key={province} value={province}>{province}</option>
+                ))}
+              </select>
+              {errors.patientHometown && <small>{errors.patientHometown.message}</small>}
+            </label>
+          </div>
+
           <label className={styles.fullWidth}>
-            <span className={styles.labelText}>Địa chỉ <em className={styles.required}>*</em></span>
+            <span className={styles.labelText}>Triệu chứng (nếu có)</span>
             <textarea
-              {...register('patientAddress')}
-              rows={2}
-              placeholder="Nhập địa chỉ hiện tại"
+              {...register('symptoms')}
+              rows={3}
+              placeholder="Mô tả ngắn triệu chứng hoặc lý do cần khám"
             />
-            {errors.patientAddress && <small>{errors.patientAddress.message}</small>}
+            {errors.symptoms && <small>{errors.symptoms.message}</small>}
           </label>
         </fieldset>
 
@@ -280,7 +309,7 @@ export function BookingFlow() {
           </label>
 
           <label>
-            <span className={styles.labelText}>Bác sĩ <em className={styles.required}>*</em></span>
+            <span className={styles.labelText}>Bác sĩ</span>
             <select
               {...register('doctorId', {
                 onChange: () => {
@@ -288,16 +317,20 @@ export function BookingFlow() {
                   setValue('time', '');
                 },
               })}
-              disabled={!selectedFacility}
+              disabled={!selectedFacility || doctors.isLoading}
             >
-              <option value="">Chọn bác sĩ</option>
-              {availableDoctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.title} {doctor.name}
+              <option value="">
+                {doctors.isLoading ? 'Đang tải bác sĩ...' : 'Bác sĩ bất kỳ còn lịch'}
+              </option>
+              {doctors.data?.map((doctor) => (
+                <option key={doctor.name} value={doctor.name}>
+                  {doctor.name}
                 </option>
               ))}
             </select>
-            {errors.doctorId && <small>{errors.doctorId.message}</small>}
+            {doctors.isError && (
+              <small>Không thể tải danh sách bác sĩ. Vui lòng thử lại.</small>
+            )}
           </label>
 
           <div className={styles.twoColumns}>
@@ -307,26 +340,35 @@ export function BookingFlow() {
                 {...register('date', {
                   onChange: () => setValue('time', ''),
                 })}
-                disabled={!selectedDoctor}
+                disabled={!selectedFacility || schedules.isLoading}
               >
-                <option value="">Chọn thứ / ngày</option>
+                <option value="">
+                  {schedules.isLoading ? 'Đang tải ngày còn lịch...' : 'Chọn thứ / ngày'}
+                </option>
                 {schedules.data?.map((day) => (
                   <option key={day.date} value={day.date}>{day.label}</option>
                 ))}
               </select>
+              {schedules.isError && <small>Không thể tải lịch còn chỗ.</small>}
+              {!schedules.isLoading && !schedules.isError && selectedFacility && schedules.data?.length === 0 && (
+                <small>Chưa có ngày khám còn chỗ với lựa chọn hiện tại.</small>
+              )}
               {errors.date && <small>{errors.date.message}</small>}
             </label>
             <label>
-              <span className={styles.labelText}>Giờ khám <em className={styles.required}>*</em></span>
+              <span className={styles.labelText}>Buổi khám <em className={styles.required}>*</em></span>
               <select {...register('time')} disabled={!selectedSchedule}>
-                <option value="">Chọn giờ</option>
+                <option value="">Chọn buổi khám</option>
                 {selectedSchedule?.slots.map((slot) => (
                   <option
                     key={slot.id}
                     value={slot.status === 'available' ? slot.time : ''}
                     disabled={slot.status !== 'available'}
                   >
-                    {slot.time} — {slot.status === 'available' ? 'Còn chỗ' : 'Hết lịch'}
+                    {slot.label ?? slot.time}
+                    {typeof slot.remaining_capacity === 'number'
+                      ? ` — còn ${slot.remaining_capacity} chỗ`
+                      : ''}
                   </option>
                 ))}
               </select>
@@ -354,7 +396,7 @@ export function BookingFlow() {
           {submitting ? (
             <><LoaderCircle className={styles.spin} size={18} /> Đang đặt lịch...</>
           ) : (
-            <>Đặt lịch <Check size={18} /></>
+            <>Đặt lịch</>
           )}
         </button>
       </div>
