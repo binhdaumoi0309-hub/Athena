@@ -40,11 +40,10 @@ Bat buoc xu ly truoc public deploy:
    - `athena-prod-main`: push `main`, deploy sau khi checks thanh cong.
 9. Bat budget alert va Monitoring alert cho Cloud Run 5xx, latency, restart va Cloud Build failure. Demo dat `min instances=0` va max instances de gioi han chi phi.
 
-Trang thai hien tai: connection `athena-github` da `COMPLETE`, nhung GitHub App
-installation `147324459` chua duoc cap repo `binhdaumoi0309-hub/Athena`. Mo
-`https://github.com/settings/installations/147324459`, chon **Configure**, sau
-do them repo **Athena** vao Repository access. Khong can tao token hay key moi.
-Sau buoc nay moi co the dang ky repository va tao hai trigger tren.
+Trang thai hien tai: repository da chuyen tu `binhdaumoi0309-hub/Athena` sang
+`mchienn/Athena`. Connection `athena-github`, linked repository va hai trigger
+`athena-pr-check`/`athena-prod-main` da duoc tao. Production trigger da chay
+thanh cong voi commit `a2e9c62`.
 
 Luu y: `ruff check .` hien fail 107 loi. Chay pytest/typecheck/build trong PR trigger ngay; chi bat ruff blocking gate sau khi da sua hoac baseline co chu dich.
 
