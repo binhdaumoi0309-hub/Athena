@@ -29,7 +29,7 @@ def open_booking_page() -> dict:
         "status": "success",
         "action": "navigate",
         "url": f"{frontend_url}/dat-lich",
-        "message": "Đang chuyển người dùng đến trang đặt lịch.",
+        "message": "Truy cập đường dẫn để đến trang đặt lịch.",
     }
 
 
