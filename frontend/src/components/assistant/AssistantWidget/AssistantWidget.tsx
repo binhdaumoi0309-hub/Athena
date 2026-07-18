@@ -5,6 +5,7 @@ import { usePersistentChat } from '../../../hooks/usePersistentChat';
 import { useAutoResizeTextarea } from '../../../hooks/useAutoResizeTextarea';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { ChatToolbar } from '../ChatToolbar';
+import { CHAT_SUGGESTIONS } from '../chatSuggestions';
 import { StructuredMessage } from '../messages/StructuredMessage';
 import { VoiceInputOverlay } from '../VoiceInputOverlay';
 import styles from './AssistantWidget.module.css';
@@ -111,8 +112,15 @@ export function AssistantWidget() {
           </div>
 
           <div className={styles.suggestions}>
-            {['Tìm bác sĩ', 'Lịch khám gần nhất'].map((text) => (
-              <button key={text} onClick={() => setInput(text)}>{text}</button>
+            {CHAT_SUGGESTIONS.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                disabled={chat.sending || !chat.canSend}
+                onClick={() => void submitMessage(suggestion)}
+              >
+                {suggestion}
+              </button>
             ))}
           </div>
 
