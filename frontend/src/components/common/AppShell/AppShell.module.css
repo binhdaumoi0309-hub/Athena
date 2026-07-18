@@ -35,11 +35,13 @@
 .search input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 8px 0 0 8px; }
 .search button { display: flex; align-items: center; gap: 7px; padding: 0 18px; color: #fff; background: var(--color-primary-800); border: 0; border-radius: 0 8px 8px 0; }
 .footer { padding-top: 54px; color: #cbd5e1; background: var(--color-primary-900); }
-.footerGrid { display: grid; grid-template-columns: 1.4fr 0.72fr 1.32fr 1fr; gap: 30px; }
+.footerGrid { display: grid; grid-template-columns: 1.15fr 0.65fr 1.55fr 0.85fr; gap: 24px; }
 .footerGrid h2 { margin-bottom: 18px; color: #fff; font: 700 1rem var(--font-sans); }
 .footerGrid a { display: block; margin: 8px 0; }
 .footerGrid p { font-size: 0.88rem; line-height: 1.7; }
 .contactColumn p { margin: 0 0 8px; }
+.contactColumn { min-width: 0; }
+.contactColumn p { white-space: nowrap; }
 .contactColumn strong { color: #fff; font-weight: 700; }
 .footerBrand { display: flex; align-items: center; gap: 12px; color: #fff; font-family: var(--font-serif); font-size: 1.2rem; }
 .footerBrand img { border: 1px solid rgb(255 255 255 / 20%); border-radius: 12px; }
@@ -54,6 +56,10 @@
   .footerGrid { grid-template-columns: repeat(2, 1fr); }
 }
 
+@media (max-width: 1180px) {
+  .footerGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 680px) {
   .topbarInner > span, .topbarInner div span { display: none; }
   .topbarInner { justify-content: center; }
@@ -65,4 +71,5 @@
   .bookingButton span { display: none; }
   .footer { padding-top: 40px; }
   .footerGrid { grid-template-columns: 1fr; gap: 24px; }
+  .contactColumn p { white-space: normal; }
 }

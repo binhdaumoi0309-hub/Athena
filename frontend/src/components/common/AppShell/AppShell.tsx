@@ -22,7 +22,7 @@ export function AppShell() {
   return <>
     <a className={styles.skipLink} href="#main-content">Chuyển đến nội dung chính</a>
     <header>
-      <div className={styles.topbar}><div className={`container ${styles.topbarInner}`}><span>Chăm sóc trái tim — Vì một Hà Nội khỏe mạnh</span><div><a href="tel:115"><Phone size={14} /> Cấp cứu: 115</a><span>Hotline: 024 3942 2430</span></div></div></div>
+      <div className={styles.topbar}><div className={`container ${styles.topbarInner}`}><span>Chăm sóc trái tim — Vì một Việt Nam khỏe mạnh</span><div><a href="tel:115"><Phone size={14} /> Cấp cứu: 115</a><a href="tel:19001082">Hotline: 19001082</a></div></div></div>
       <div className={styles.header}><div className={`container ${styles.headerInner}`}>
         <Link className={styles.brand} to="/" aria-label="Bệnh viện Tim Hà Nội - Trang chủ"><img src="/logos/hanoi-heart-hospital.svg" alt="" width="52" height="52"/><span><strong>Bệnh viện Tim Hà Nội</strong><small>Hanoi Heart Hospital</small></span></Link>
         <nav className={styles.desktopNav} aria-label="Điều hướng chính">{navigation.map((item) => <NavLink key={item.to} className={({ isActive }) => isActive ? styles.active : undefined} to={item.to}>{item.label}</NavLink>)}</nav>
@@ -49,7 +49,7 @@ export function AppShell() {
     <footer className={styles.footer}><div className={`container ${styles.footerGrid}`}>
       <div><div className={styles.footerBrand}><img src="/logos/hanoi-heart-hospital.svg" alt="" width="48"/><strong>Bệnh viện Tim Hà Nội</strong></div><p>Bệnh viện chuyên khoa đầu ngành về tim mạch của Thủ đô, tận tâm chăm sóc sức khỏe trái tim cộng đồng.</p></div>
       <div><h2>Truy cập nhanh</h2><Link to="/bac-si">Đội ngũ bác sĩ</Link><Link to="/chuyen-khoa">Chuyên khoa</Link><Link to="/lich-kham">Lịch khám</Link><Link to="/dat-lich">Đặt lịch khám</Link></div>
-      <div className={styles.contactColumn}><h2>Liên hệ</h2><p><strong>Cơ sở 1:</strong> Số 92 Trần Hưng Đạo, phường Cửa Nam, Hà Nội</p><p><strong>Cơ sở 2:</strong> Số 695 Lạc Long Quân, phường Tây Hồ, Hà Nội</p><a href="tel:02439422430">024 3942 2430</a><a href="mailto:contact@hanoihearthospital.vn">contact@hanoihearthospital.vn</a></div>
+      <div className={styles.contactColumn}><h2>Liên hệ</h2><p><strong>Cơ sở 1:</strong> Số 92 Trần Hưng Đạo, phường Cửa Nam, Hà Nội</p><p><strong>Cơ sở 2:</strong> Số 695 Lạc Long Quân, phường Tây Hồ, Hà Nội</p><a href="tel:19001082">Hotline: 19001082</a><a href="mailto:cskh@timhanoi.vn">cskh@timhanoi.vn</a></div>
       <div><h2>Cấp cứu 24/7</h2><a className={styles.emergency} href="tel:115"><HeartPulse size={20}/> Gọi 115</a><p>Không trì hoãn khi có dấu hiệu đau ngực, khó thở, vã mồ hôi hoặc ngất.</p></div>
     </div><div className={styles.copyright}>© 2026 Bệnh viện Tim Hà Nội. Giao diện demo phục vụ tích hợp hệ thống.</div></footer>
     {!location.pathname.startsWith('/dat-lich') && <AssistantWidget/>}

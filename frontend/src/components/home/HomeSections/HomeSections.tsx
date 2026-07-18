@@ -2,7 +2,6 @@ import {
   Activity,
   ArrowRight,
   Baby,
-  Building2,
   ExternalLink,
   HeartPulse,
   MapPin,
@@ -10,11 +9,14 @@ import {
   Stethoscope,
   Waves,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { doctorService } from '../../../services';
 import { DoctorCard } from '../../common/DoctorCard';
+import { DoctorProfileModal } from '../../common/DoctorProfileModal';
 import { StatePanel } from '../../common/StatePanel';
+import type { Doctor } from '../../../types';
 import styles from './HomeSections.module.css';
 
 const specialtyIcons = [Activity, HeartPulse, Waves, Stethoscope, Baby, ScanLine];
@@ -23,20 +25,23 @@ const hospitalFacilities = [
   {
     id: 'cs1',
     label: 'Cơ sở 1',
+    image: '/images/bvtim1.jpg',
     address: 'Số 92 Trần Hưng Đạo, phường Cửa Nam, Hà Nội',
     mapUrl: 'https://www.google.com/maps/search/?api=1&query=92+Trần+Hưng+Đạo+phường+Cửa+Nam+Hà+Nội',
   },
   {
     id: 'cs2',
     label: 'Cơ sở 2',
+    image: '/images/bvtim2.png',
     address: 'Số 695 Lạc Long Quân, phường Tây Hồ, Hà Nội',
     mapUrl: 'https://www.google.com/maps/search/?api=1&query=695+Lạc+Long+Quân+phường+Tây+Hồ+Hà+Nội',
   },
 ];
 
 export function HomeSections() {
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const doctors = useQuery({
-    queryKey: ['doctors'],
+    queryKey: ['doctor-capabilities'],
     queryFn: () => doctorService.list(),
   });
   const specialties = useQuery({
@@ -94,7 +99,7 @@ export function HomeSections() {
           ) : (
             <div className={styles.doctorGrid}>
               {doctors.data?.slice(0, 4).map((doctor) => (
-                <DoctorCard doctor={doctor} key={doctor.id} />
+                <DoctorCard doctor={doctor} key={doctor.id} onViewProfile={setSelectedDoctor} />
               ))}
             </div>
           )}
@@ -126,9 +131,14 @@ export function HomeSections() {
           <div className={styles.facilityGrid}>
             {hospitalFacilities.map((facility) => (
               <article key={facility.id} className={styles.facilityCard}>
-                <div className={styles.facilityImage} aria-label={`Vị trí ảnh ${facility.label}`}>
-                  <Building2 size={48} aria-hidden="true" />
-                  <span>Hình ảnh {facility.label}</span>
+                <div className={styles.facilityImage}>
+                  <img
+                    src={facility.image}
+                    alt={`Bệnh viện Tim Hà Nội - ${facility.label}`}
+                    width="720"
+                    height="420"
+                    loading="lazy"
+                  />
                 </div>
                 <div className={styles.facilityContent}>
                   <span className={styles.facilityLabel}>{facility.label}</span>
@@ -143,6 +153,9 @@ export function HomeSections() {
           </div>
         </div>
       </section>
+      {selectedDoctor && (
+        <DoctorProfileModal doctor={selectedDoctor} onClose={() => setSelectedDoctor(null)} />
+      )}
     </>
   );
 }

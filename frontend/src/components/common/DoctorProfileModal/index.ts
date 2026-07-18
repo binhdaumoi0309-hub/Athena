@@ -1,0 +1,1 @@
+export { DoctorProfileModal } from './DoctorProfileModal';

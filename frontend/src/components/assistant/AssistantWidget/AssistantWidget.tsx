@@ -1,18 +1,26 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Bot, LoaderCircle, MessageCircle, Mic, RefreshCw, Send, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePersistentChat } from '../../../hooks/usePersistentChat';
+import { useAutoResizeTextarea } from '../../../hooks/useAutoResizeTextarea';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { ChatToolbar } from '../ChatToolbar';
 import { StructuredMessage } from '../messages/StructuredMessage';
+import { VoiceInputOverlay } from '../VoiceInputOverlay';
 import styles from './AssistantWidget.module.css';
 
 export function AssistantWidget() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useAutoResizeTextarea(input);
   const messagesRef = useRef<HTMLDivElement>(null);
   const chat = usePersistentChat();
+  const speech = useSpeechToText({
+    value: input,
+    onChange: setInput,
+    onSubmit: (value) => void submitMessage(value),
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -20,9 +28,7 @@ export function AssistantWidget() {
     container?.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
   }, [chat.messages, chat.sending, open]);
 
-  const send = async (event?: FormEvent) => {
-    event?.preventDefault();
-    const value = input.trim();
+  async function submitMessage(value: string) {
     if (!value || chat.sending || !chat.canSend) return;
     const answer = await chat.send(value);
     if (answer) {
@@ -38,10 +44,27 @@ export function AssistantWidget() {
       }
     }
     inputRef.current?.focus();
+  }
+
+  const send = async (event?: FormEvent) => {
+    event?.preventDefault();
+    const value = input.trim();
+    if (!value || chat.sending || !chat.canSend) return;
+    speech.stopListening(false);
+    await submitMessage(value);
+  };
+
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    void send();
   };
 
   return (
     <div className={styles.root}>
+      {speech.listening && (
+        <VoiceInputOverlay transcript={input} onStop={() => speech.stopListening(true)} />
+      )}
       {open && (
         <section className={styles.panel} aria-label="Trợ lý AI">
           <header>
@@ -92,17 +115,29 @@ export function AssistantWidget() {
             ))}
           </div>
 
+          {speech.error && <p className={styles.voiceError} role="alert">{speech.error}</p>}
+
           <form onSubmit={(event) => void send(event)}>
             <label className="sr-only" htmlFor="assistant-input">Nhập câu hỏi</label>
-            <input
+            <textarea
               ref={inputRef}
               id="assistant-input"
+              rows={1}
               value={input}
               onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleInputKeyDown}
               placeholder="Bạn cần hỗ trợ gì?"
               disabled={chat.initializing}
             />
-            <button className={styles.micButton} type="button" aria-label="Nhập bằng giọng nói (sắp có)">
+            <button
+              className={`${styles.micButton} ${speech.listening ? styles.listening : ''}`}
+              type="button"
+              onClick={speech.toggleListening}
+              disabled={!speech.supported || chat.initializing}
+              aria-label={speech.listening ? 'Dừng ghi âm' : 'Nhập bằng giọng nói'}
+              aria-pressed={speech.listening}
+              title={speech.supported ? (speech.listening ? 'Dừng ghi âm' : 'Nhập bằng giọng nói') : 'Trình duyệt không hỗ trợ nhận dạng giọng nói'}
+            >
               <Mic size={18} />
             </button>
             <button

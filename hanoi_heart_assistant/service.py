@@ -50,6 +50,15 @@ class DoctorAvailabilityItem(BaseModel):
     first_available_date: date
 
 
+class DoctorCatalogItem(BaseModel):
+    id: str
+    title: str
+    content: str
+    zone: str = ""
+    facility_id: str = ""
+    image: str = "/images/doctor-placeholder.svg"
+
+
 class AvailableShift(BaseModel):
     shift: ShiftCode
     label: str
@@ -113,7 +122,7 @@ FACILITIES = [
         name="Bệnh viện Tim Hà Nội — Cơ sở 1",
         shortName="Cơ sở 1",
         address="Số 92 Trần Hưng Đạo, phường Cửa Nam, Hà Nội",
-        phone="024 3942 2430",
+        phone="19001082",
         hours="07:00–17:00",
         image="/images/hospital-campus.svg",
     ),
@@ -122,7 +131,7 @@ FACILITIES = [
         name="Bệnh viện Tim Hà Nội — Cơ sở 2",
         shortName="Cơ sở 2",
         address="Số 695 Lạc Long Quân, phường Tây Hồ, Hà Nội",
-        phone="024 3942 2430",
+        phone="19001082",
         hours="07:00–17:00",
         image="/images/hospital-building.svg",
     ),
@@ -194,6 +203,29 @@ def _facility_id(value: int) -> str:
 
 def _clean_doctor_name(value: Any) -> str:
     return " ".join(str(value or "").split())
+
+
+def _doctor_facility_id(zone: str, content: str) -> str:
+    searchable = f"{zone} {content}".casefold()
+    if "cơ sở 2" in searchable or "co so 2" in searchable:
+        return "cs2"
+    if "cơ sở 1" in searchable or "co so 1" in searchable:
+        return "cs1"
+    return ""
+
+
+def _doctor_catalog_item(snapshot: Any) -> DoctorCatalogItem:
+    data = snapshot.to_dict() or {}
+    title = _clean_doctor_name(data.get("title")) or "Bác sĩ"
+    content = " ".join(str(data.get("content") or "").split())
+    zone = _clean_doctor_name(data.get("zone"))
+    return DoctorCatalogItem(
+        id=snapshot.id,
+        title=title,
+        content=content,
+        zone=zone,
+        facility_id=_doctor_facility_id(zone, content),
+    )
 
 
 def _date_label(value: date) -> str:
@@ -354,6 +386,42 @@ def _shift_from_time(value: str) -> ShiftCode:
 def list_facilities() -> list[FacilityItem]:
     """Return the two hospital facilities in the shape expected by the frontend."""
     return FACILITIES
+
+
+@router.get("/doctors", response_model=list[DoctorCatalogItem])
+def list_doctors() -> list[DoctorCatalogItem]:
+    """Return doctor profiles stored in Firestore doctor_capabilities."""
+    try:
+        snapshots = _firestore_client().collection("doctor_capabilities").stream()
+        doctors = [_doctor_catalog_item(snapshot) for snapshot in snapshots]
+    except Exception as error:
+        raise HTTPException(
+            503,
+            f"Không thể tải danh sách bác sĩ từ Firestore: {error}",
+        ) from error
+
+    doctors.sort(key=lambda item: item.title.casefold())
+    return doctors
+
+
+@router.get("/doctors/{doctor_id}", response_model=DoctorCatalogItem)
+def get_doctor(doctor_id: str) -> DoctorCatalogItem:
+    """Return one doctor profile from Firestore doctor_capabilities."""
+    try:
+        snapshot = (
+            _firestore_client()
+            .collection("doctor_capabilities")
+            .document(doctor_id)
+            .get()
+        )
+    except Exception as error:
+        raise HTTPException(
+            503,
+            f"Không thể tải thông tin bác sĩ từ Firestore: {error}",
+        ) from error
+    if not snapshot.exists:
+        raise HTTPException(404, "Không tìm thấy bác sĩ.")
+    return _doctor_catalog_item(snapshot)
 
 
 @router.get("/booking/doctors", response_model=list[DoctorAvailabilityItem])

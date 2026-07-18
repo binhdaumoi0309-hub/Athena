@@ -3,7 +3,6 @@ import { useLocation, useRoutes } from 'react-router-dom';
 import { AppShell } from '../components/common/AppShell';
 import { HomePage } from '../pages/HomePage';
 import { DoctorsPage } from '../pages/DoctorsPage';
-import { DoctorDetailPage } from '../pages/DoctorDetailPage';
 import { SpecialtiesPage } from '../pages/SpecialtiesPage';
 import { SchedulePage } from '../pages/SchedulePage';
 import { BookingPage } from '../pages/BookingPage';
@@ -28,7 +27,6 @@ export default function App() {
       children: [
         { index: true, element: <HomePage /> },
         { path: 'bac-si', element: <DoctorsPage /> },
-        { path: 'bac-si/:id', element: <DoctorDetailPage /> },
         { path: 'chuyen-khoa', element: <SpecialtiesPage /> },
         { path: 'lich-kham', element: <SchedulePage /> },
         { path: 'dat-lich', element: <BookingPage /> },

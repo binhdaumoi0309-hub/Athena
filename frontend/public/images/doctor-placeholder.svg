@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360" role="img" aria-labelledby="title">
+  <title id="title">Ảnh đại diện bác sĩ</title>
+  <rect width="320" height="360" fill="#e9f3fb"/>
+  <circle cx="160" cy="126" r="68" fill="#e8b992"/>
+  <path d="M94 111c5-71 126-79 134 0-26-28-106-30-134 0Z" fill="#34495e"/>
+  <path d="M50 360c5-105 62-151 110-151s105 46 110 151" fill="#fff"/>
+  <path d="m126 216 34 45 34-45 24 144H102z" fill="#0c4a7d"/>
+  <path d="M91 249c18 23 41 33 69 33s51-10 69-33" fill="none" stroke="#8ca3b7" stroke-width="6"/>
+  <circle cx="220" cy="284" r="25" fill="none" stroke="#64788a" stroke-width="6"/>
+</svg>

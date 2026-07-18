@@ -51,7 +51,7 @@ export const AppointmentReceipt = forwardRef<HTMLDivElement, { appointment: Appo
           <article><Clock3 /><span>Buổi khám</span><strong>{shiftLabel(appointment)}</strong></article>
           <article><Stethoscope /><span>Bác sĩ</span><strong>{appointment.doctorName}</strong></article>
           <article><MapPin /><span>Địa điểm</span><strong>{appointment.facilityName}</strong></article>
-          <article><Phone /><span>Số điện thoại hỗ trợ</span><strong>024 3942 2430</strong></article>
+          <article><Phone /><span>Số điện thoại hỗ trợ</span><strong>19001082</strong></article>
         </div>
 
         <section className={styles.patientSection}>

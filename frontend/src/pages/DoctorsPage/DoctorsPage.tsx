@@ -1,34 +1,45 @@
 import { useMemo, useState } from 'react';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DoctorCard } from '../../components/common/DoctorCard';
+import { DoctorProfileModal } from '../../components/common/DoctorProfileModal';
 import { PageHero } from '../../components/common/PageHero';
 import { StatePanel } from '../../components/common/StatePanel';
 import { doctorService } from '../../services';
+import type { Doctor } from '../../types';
 import styles from './DoctorsPage.module.css';
+
+const INITIAL_DOCTOR_COUNT = 4;
+const LOAD_MORE_COUNT = 8;
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLocaleLowerCase('vi');
+}
 
 export function DoctorsPage() {
   const [query, setQuery] = useState('');
-  const [specialty, setSpecialty] = useState('');
+  const [visibleCount, setVisibleCount] = useState(INITIAL_DOCTOR_COUNT);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const doctors = useQuery({
-    queryKey: ['doctors'],
-    queryFn: () => doctorService.list(),
+    queryKey: ['doctor-capabilities'],
+    queryFn: doctorService.list,
   });
-  const specialties = useQuery({
-    queryKey: ['specialties'],
-    queryFn: doctorService.specialties,
-  });
-  const filteredDoctors = useMemo(
-    () =>
-      doctors.data?.filter(
-        (doctor) =>
-          (!specialty || doctor.specialtyId === specialty) &&
-          `${doctor.title} ${doctor.name} ${doctor.specialty}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-      ) ?? [],
-    [doctors.data, query, specialty],
-  );
+
+  const filteredDoctors = useMemo(() => {
+    const normalizedQuery = normalizeSearch(query.trim());
+    if (!normalizedQuery) return doctors.data ?? [];
+    return (doctors.data ?? []).filter((doctor) =>
+      normalizeSearch(doctor.name).includes(normalizedQuery),
+    );
+  }, [doctors.data, query]);
+
+  const visibleDoctors = filteredDoctors.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredDoctors.length;
 
   return (
     <>
@@ -45,36 +56,28 @@ export function DoctorsPage() {
               <Search size={19} />
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Nhập tên bác sĩ hoặc chuyên khoa"
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setVisibleCount(INITIAL_DOCTOR_COUNT);
+                }}
+                placeholder="Nhập tên bác sĩ"
               />
-            </label>
-            <label>
-              <SlidersHorizontal size={18} />
-              <span className="sr-only">Lọc theo chuyên khoa</span>
-              <select
-                value={specialty}
-                onChange={(event) => setSpecialty(event.target.value)}
-              >
-                <option value="">Tất cả chuyên khoa</option>
-                {specialties.data?.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
             </label>
           </div>
 
           {doctors.isLoading ? (
             <StatePanel kind="loading" />
           ) : doctors.isError ? (
-            <StatePanel kind="error" onRetry={() => void doctors.refetch()} />
+            <StatePanel
+              kind="error"
+              description="Không thể tải dữ liệu bác sĩ từ hệ thống."
+              onRetry={() => void doctors.refetch()}
+            />
           ) : filteredDoctors.length === 0 ? (
             <StatePanel
               kind="empty"
               title="Không tìm thấy bác sĩ"
-              description="Hãy thử từ khóa hoặc chuyên khoa khác."
+              description="Hãy kiểm tra lại tên bác sĩ bạn muốn tìm."
             />
           ) : (
             <>
@@ -82,14 +85,28 @@ export function DoctorsPage() {
                 Hiện có <strong>{filteredDoctors.length}</strong> bác sĩ
               </p>
               <div className={styles.grid}>
-                {filteredDoctors.map((doctor) => (
-                  <DoctorCard key={doctor.id} doctor={doctor} />
+                {visibleDoctors.map((doctor) => (
+                  <DoctorCard key={doctor.id} doctor={doctor} onViewProfile={setSelectedDoctor} />
                 ))}
               </div>
+              {hasMore && (
+                <div className={styles.loadMoreWrapper}>
+                  <button
+                    className={styles.loadMoreButton}
+                    type="button"
+                    onClick={() => setVisibleCount((count) => count + LOAD_MORE_COUNT)}
+                  >
+                    Xem thêm
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
       </section>
+      {selectedDoctor && (
+        <DoctorProfileModal doctor={selectedDoctor} onClose={() => setSelectedDoctor(null)} />
+      )}
     </>
   );
 }

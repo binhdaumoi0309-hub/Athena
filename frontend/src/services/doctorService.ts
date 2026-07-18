@@ -1,12 +1,43 @@
-import { doctors, specialties } from '../mocks/data';
+import { specialties } from '../mocks/data';
 import type { Doctor, Specialty } from '../types';
-import { apiClient, mockDelay } from './apiClient';
+import { mockDelay } from './apiClient';
+import { bookingApiClient } from './bookingApiClient';
+
+interface DoctorCatalogResponse {
+  id: string;
+  title: string;
+  content: string;
+  zone: string;
+  facility_id: string;
+  image: string;
+}
+
+function mapDoctor(item: DoctorCatalogResponse): Doctor {
+  return {
+    id: item.id,
+    name: item.title,
+    title: '',
+    specialtyId: '',
+    specialty: '',
+    experience: 0,
+    rating: 0,
+    reviews: 0,
+    facilityId: item.facility_id,
+    image: item.image || '/images/doctor-placeholder.svg',
+    languages: [],
+    education: [],
+    about: item.content,
+  };
+}
 
 export const doctorService = {
-  list: async (specialtyId?: string): Promise<Doctor[]> => {
-    if (!apiClient.useMocks) return apiClient.get(`/doctors${specialtyId ? `?specialty=${specialtyId}` : ''}`);
-    return mockDelay(specialtyId ? doctors.filter((doctor) => doctor.specialtyId === specialtyId) : doctors);
+  list: async (): Promise<Doctor[]> => {
+    const response = await bookingApiClient.get<DoctorCatalogResponse[]>('/doctors');
+    return response.map(mapDoctor);
   },
-  getById: async (id: string): Promise<Doctor | null> => apiClient.useMocks ? mockDelay(doctors.find((doctor) => doctor.id === id) ?? null) : apiClient.get(`/doctors/${id}`),
-  specialties: async (): Promise<Specialty[]> => apiClient.useMocks ? mockDelay(specialties) : apiClient.get('/specialties'),
+  getById: async (id: string): Promise<Doctor | null> => {
+    const response = await bookingApiClient.get<DoctorCatalogResponse>(`/doctors/${encodeURIComponent(id)}`);
+    return mapDoctor(response);
+  },
+  specialties: async (): Promise<Specialty[]> => mockDelay(specialties),
 };

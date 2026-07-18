@@ -1,0 +1,118 @@
+.backdrop {
+  position: fixed;
+  z-index: 900;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 24, 48, 0.5);
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  display: flex;
+  width: min(680px, 100%);
+  max-height: min(680px, calc(100vh - 40px));
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(8, 24, 48, 0.3);
+}
+
+.modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 26px 20px;
+  color: #fff;
+  background: var(--color-primary-800);
+}
+
+.modal > header span {
+  color: #bfdbfe;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.modal > header h2 {
+  margin: 6px 0 0;
+  color: #fff;
+  font: 700 clamp(1.3rem, 3vw, 1.75rem) var(--font-serif);
+}
+
+.modal > header button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+}
+
+.content {
+  padding: 26px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.content h3 {
+  margin: 0 0 12px;
+  color: var(--color-primary-900);
+  font-size: 1rem;
+}
+
+.content p {
+  margin: 0;
+  color: var(--color-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.96rem;
+  line-height: 1.8;
+}
+
+.modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 26px;
+  border-top: 1px solid var(--color-border);
+}
+
+.modal > footer button,
+.modal > footer a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.modal > footer button {
+  color: var(--color-primary-800);
+  background: #fff;
+  border: 1px solid var(--color-border);
+}
+
+.modal > footer a {
+  color: #fff;
+  background: var(--color-primary-800);
+}
+
+@media (max-width: 560px) {
+  .backdrop { padding: 12px; }
+  .modal { max-height: calc(100vh - 24px); border-radius: 16px; }
+  .modal > header, .content { padding: 20px; }
+  .modal > footer { padding: 14px 20px; }
+}

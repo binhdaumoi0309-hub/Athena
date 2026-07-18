@@ -20,11 +20,15 @@
 .retry { display: flex; align-items: center; gap: 7px; margin-top: 7px; padding: 8px; color: var(--color-danger); background: #fff; border: 1px solid #fecaca; border-radius: 8px; }
 .suggestions { display: flex; gap: 6px; padding: 8px 12px; overflow: auto; border-top: 1px solid var(--color-border); }
 .suggestions button { padding: 6px 10px; color: var(--color-primary-800); white-space: nowrap; background: var(--color-accent-light); border: 0; border-radius: 999px; font-size: 0.7rem; }
-.panel form { display: flex; padding: 10px; border-top: 1px solid var(--color-border); }
-.panel form input { flex: 1; min-width: 0; padding: 9px; border: 1px solid var(--color-border); border-radius: 8px 0 0 8px; }
-.panel form button { display: grid; place-items: center; width: 42px; color: #fff; background: var(--color-primary-800); border: 0; }
+.panel form { display: flex; align-items: flex-end; padding: 10px; border-top: 1px solid var(--color-border); }
+.panel form textarea { flex: 1; min-width: 0; min-height: 40px; max-height: 108px; padding: 9px; overflow-x: hidden; overflow-y: auto; resize: none; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.4; border: 1px solid var(--color-border); border-radius: 8px 0 0 8px; outline: 0; }
+.panel form textarea:focus { border-color: var(--color-primary-800); }
+.panel form button { display: grid; place-items: center; flex: none; width: 42px; height: 40px; color: #fff; background: var(--color-primary-800); border: 0; }
 .panel form button:last-child { border-radius: 0 8px 8px 0; }
 .panel form .micButton { color: var(--color-primary-800); background: var(--color-accent-light); border-right: 1px solid #bfdbfe; }
+.panel form .listening { color: #fff; background: var(--color-danger); animation: voicePulse 1.2s ease-in-out infinite; }
+.voiceError { margin: 0; padding: 6px 12px; color: #991b1b; background: #fef2f2; font-size: 0.72rem; }
 .panel button:disabled { cursor: not-allowed; opacity: 0.58; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes voicePulse { 50% { opacity: 0.65; } }
 @media (max-width: 560px) { .root { right: 12px; bottom: 12px; } .panel { height: calc(100vh - 90px); } .fab { width: 52px; height: 52px; } }

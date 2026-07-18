@@ -1,8 +1,8 @@
 import type { Appointment, Doctor, Facility, PriceItem, ScheduleDay, Specialty } from '../types';
 
 export const facilities: Facility[] = [
-  { id: 'cs1', name: 'Bệnh viện Tim Hà Nội — Cơ sở 1', shortName: 'Cơ sở 1', address: '92 Trần Hưng Đạo, Hoàn Kiếm, Hà Nội', phone: '024 3942 2430', hours: '07:00–17:00', image: '/images/hospital-campus.svg' },
-  { id: 'cs2', name: 'Bệnh viện Tim Hà Nội — Cơ sở 2', shortName: 'Cơ sở 2', address: 'Võ Chí Công, Tây Hồ, Hà Nội', phone: '024 3942 2430', hours: '07:00–17:00', image: '/images/hospital-building.svg' },
+  { id: 'cs1', name: 'Bệnh viện Tim Hà Nội — Cơ sở 1', shortName: 'Cơ sở 1', address: 'Số 92 Trần Hưng Đạo, phường Cửa Nam, Hà Nội', phone: '19001082', hours: '07:00–17:00', image: '/images/hospital-campus.svg' },
+  { id: 'cs2', name: 'Bệnh viện Tim Hà Nội — Cơ sở 2', shortName: 'Cơ sở 2', address: 'Số 695 Lạc Long Quân, phường Tây Hồ, Hà Nội', phone: '19001082', hours: '07:00–17:00', image: '/images/hospital-building.svg' },
 ];
 
 export const specialties: Specialty[] = [
