@@ -25,11 +25,13 @@ export const authService = {
       const user = { ...mockUser, phone: payload.phone };
       localStorage.setItem('auth_user', JSON.stringify(user));
       localStorage.setItem('auth_token', 'mock-token');
+      localStorage.setItem('user_id', 'mock-user-1');
       return mockDelay(user);
     }
     
     const res = await apiClient.post<{ access_token: string; user_id: string; patient_id: string }>('/auth/login', payload);
     localStorage.setItem('auth_token', res.access_token);
+    localStorage.setItem('user_id', res.user_id);
     localStorage.setItem('patient_id', res.patient_id);
     
     const profile = await authService.getProfile();
@@ -41,6 +43,7 @@ export const authService = {
       const user = { ...mockUser, fullName: payload.fullName, phone: payload.phone, email: payload.email };
       localStorage.setItem('auth_user', JSON.stringify(user));
       localStorage.setItem('auth_token', 'mock-token');
+      localStorage.setItem('user_id', 'mock-user-1');
       return mockDelay(user);
     }
 

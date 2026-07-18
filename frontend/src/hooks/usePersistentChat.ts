@@ -9,7 +9,7 @@ const welcomeMessage: AssistantMessage = {
   role: 'assistant',
   intent: 'general',
   answer:
-    'Xin chào! Tôi là trợ lý Bệnh viện Tim Hà Nội. Tôi có thể hỗ trợ thông tin bác sĩ, lịch khám và quy trình đặt lịch.',
+    'Xin chào! Tôi là trợ lý Bệnh viện Tim Hà Nội. Tôi có thể hỗ trợ thông tin bác sĩ, lịch khám, giá dịch vụ và quy trình đặt lịch.',
   actions: [],
   structured_data: {},
   emergency: false,

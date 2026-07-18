@@ -95,6 +95,9 @@ export async function getChatUserId(): Promise<string> {
       '/chat/bind-firebase',
       { firebase_uid: firebaseUser.uid },
     );
+    // The authenticated backend user ID is the ADK user ID. Persist it so the
+    // chat widget can be remounted when authentication changes.
+    localStorage.setItem('user_id', binding.user_id);
     return binding.user_id;
   } catch (error) {
     throw new Error(

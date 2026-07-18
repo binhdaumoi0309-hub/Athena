@@ -52,7 +52,9 @@ export function AppShell() {
       <div className={styles.contactColumn}><h2>Liên hệ</h2><p><strong>Cơ sở 1:</strong> Số 92 Trần Hưng Đạo, phường Cửa Nam, Hà Nội</p><p><strong>Cơ sở 2:</strong> Số 695 Lạc Long Quân, phường Tây Hồ, Hà Nội</p><a href="tel:19001082">Hotline: 19001082</a><a href="mailto:cskh@timhanoi.vn">cskh@timhanoi.vn</a></div>
       <div><h2>Cấp cứu 24/7</h2><a className={styles.emergency} href="tel:115"><HeartPulse size={20}/> Gọi 115</a><p>Không trì hoãn khi có dấu hiệu đau ngực, khó thở, vã mồ hôi hoặc ngất.</p></div>
     </div><div className={styles.copyright}>© 2026 Bệnh viện Tim Hà Nội. Giao diện demo phục vụ tích hợp hệ thống.</div></footer>
-    {!location.pathname.startsWith('/dat-lich') && <AssistantWidget/>}
+    {!location.pathname.startsWith('/dat-lich') && (
+      <AssistantWidget key={localStorage.getItem('auth_token') ? 'authenticated' : 'anonymous'} />
+    )}
   </>;
 }
 export default AppShell;

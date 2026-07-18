@@ -111,7 +111,7 @@ export function AssistantWidget() {
           </div>
 
           <div className={styles.suggestions}>
-            {['Tìm bác sĩ', 'Lịch khám gần nhất', 'Chuyên khoa phù hợp'].map((text) => (
+            {['Tìm bác sĩ', 'Lịch khám gần nhất'].map((text) => (
               <button key={text} onClick={() => setInput(text)}>{text}</button>
             ))}
           </div>

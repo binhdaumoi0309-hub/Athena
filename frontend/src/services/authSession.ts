@@ -9,6 +9,7 @@ export function getAccessToken(): string | null {
 export function clearAccessToken(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem('auth_user');
+  localStorage.removeItem('user_id');
   localStorage.removeItem('patient_id');
 }
 
